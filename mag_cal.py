@@ -52,6 +52,7 @@ except ImportError:
 
     ULAB_PRESENT = True
 
+
 __version__ = "0.0.0+auto.0"
 __repo__ = "https://github.com/furbrain/CircuitPython_mag_cal.git"
 
@@ -60,6 +61,7 @@ def solve_least_squares(A: np.ndarray, B: np.ndarray):
     # pylint: disable=invalid-name
     """
     Calculate x such that Ax=B. Convenience function so can use either `numpy` or `ulab`
+
     :param A:
     :param B:
     :return: x
@@ -86,6 +88,7 @@ class Transform:
     def __init__(self, axes="+X+Y+Z"):
         """
         Create a transform object, with axes set
+
         :param str axes: A string representing how your sensor is mounted with respect to your
           device. For each axis XYZ of your device (see above for axis descriptions), state the
           corresponding axis of your sensor. Add a ``+`` or ``-`` to let us know if it is inverted.
@@ -105,7 +108,7 @@ class Transform:
         Take multiple sets of readings in various directions. You can then use this function
         to determine an ideal set of calibration coefficients
 
-        :param np.ndarray data: Numpy array of readings of shape (dims,3)
+        :param np.ndarray data: Numpy array of readings of shape (N,3)
         :return: accuracy - How well the calibrated model fits the data lower numbers are better.
         :rtype: float
         """
@@ -135,7 +138,8 @@ class Transform:
     def apply(self, data: np.ndarray) -> np.ndarray:
         """
         Take a set of raw data and apply the calibration to it
-        :param np.ndarray data: Numpy array of shape (3,) or (dims,3)
+
+        :param np.ndarray data: Numpy array of shape (3,) or (N,3)
         :return: numpy array with same shape as ``data``
         """
         if self.transform is None:
@@ -159,11 +163,6 @@ class Transform:
 
 
 class Calibration:
-    """
-    An object representing the calibration coefficients for a combined
-        magnetometer and accelerometer
-    """
-
     def __init__(self, mag_axes: str = "+X+Y+Z", grav_axes: str = None):
         """
         Create an object representing the calibration coefficients for a combined
@@ -174,7 +173,7 @@ class Calibration:
           corresponding axis of your sensor. Add a ``+`` or ``-`` to let us know if it is inverted.
           So for a sensor that is correctly mounted it will be ``"+X+Y+Z"``. If the sensors Y axis
           points to the left of the device, the X is forwards and Z is down, specify this as
-          ``"-Y+X+Z"``
+          ``"-Y+X-Z"``
         :param str grav_axes: Same format as ``mag_axes`` but for the accelerometer. Default is copy
           of mag_axes.
         """
@@ -208,7 +207,7 @@ class Calibration:
         Take multiple sets of readings in various directions. You can then use this function
         to determine an ideal set of calibration coefficients
 
-        :param np.ndarray mag_data: Numpy array of magnetic readings of shape (dims,3)
+        :param np.ndarray mag_data: Numpy array of magnetic readings of shape (N,3)
         :param np.ndarray grav_data: Numpy array of gravity readings of shape (M,3)
         :return: (mag_accuracy, grav_accuracy) How well the calibrated model fits the data.
           Lower numbers are better
@@ -223,7 +222,7 @@ class Calibration:
 
         :param data: A list of paired magnetic and gravity readings e.g.:
           ``[(mag_data1, grav_data1), (mag_data2, grav_data2)]``, where ``mag_data1`` and
-          ``grav_data1`` is a (dims,3) numpy array of readings around the axis in the first
+          ``grav_data1`` is a (N,3) numpy array of readings around the axis in the first
           direction, and ``mag_data2`` and ``grav_data2`` is a (M,3) numpy array of readings around
           the specified axis in another direction.
         :param axis: Axis you have rotated your device around. Defaults to ``"Y"``
@@ -245,9 +244,9 @@ class Calibration:
         Get the device orientation as an orthonormal matrix, given the magnetic and gravity readings
 
         :param numpy.ndarray mag_data: Magnetic readings, either as numpy array or sequence of 3
-        floats
+          floats
         :param numpy.ndarray grav_data: Gravity readings, either as numpy array or sequence of 3
-        floats
+          floats
         :return: Orthonormal matrix converting device coordinates to real world coordinates
         :rtype: numpy.ndarray
         """
