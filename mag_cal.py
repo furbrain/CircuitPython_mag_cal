@@ -59,7 +59,7 @@ __repo__ = "https://github.com/furbrain/CircuitPython_mag_cal.git"
 def solve_least_squares(A: np.ndarray, B: np.ndarray):
     # pylint: disable=invalid-name
     """
-    Calculate x such that Ax=B
+    Calculate x such that Ax=B. Convenience function so can use either `numpy` or `ulab`
     :param A:
     :param B:
     :return: x
@@ -83,7 +83,7 @@ class Transform:
     This represents the calibration coefficients for a single sensor
     """
 
-    def __init__(self, axes):
+    def __init__(self, axes="+X+Y+Z"):
         """
         Create a transform object, with axes set
         :param str axes: A string representing how your sensor is mounted with respect to your
@@ -91,12 +91,12 @@ class Transform:
           corresponding axis of your sensor. Add a ``+`` or ``-`` to let us know if it is inverted.
           So for a sensor that is correctly mounted it will be ``"+X+Y+Z"``. If the sensors Y axis
           points to the left of the device, the X is forwards and Z is down, specify this as
-          ``"-Y+X+Z"``
+          ``"-Y+X+Z"``. Default is ``+X+Y+Z``
         """
         self.axes = Axes(axes)
         self.non_linear = 0
-        self.transform = None
-        self.centre = None
+        self.transform: np.ndarray = None
+        self.centre: np.ndarray = None
         self.rbfs: Optional[List[RBF]] = None
 
     def fit_ellipsoid(self, data: np.ndarray) -> float:
@@ -119,8 +119,8 @@ class Transform:
             (x * x, y * y, z * z, 2 * x * y, 2 * x * z, 2 * y * z, 2 * x, 2 * y, 2 * z),
             axis=1,
         )
-        coeff = solve_least_squares(input_array.transpose(), output_array)
-        a, b, c, d, e, f, g, h, i = coeff
+        coeff = solve_least_squares(input_array, output_array)
+        a, b, c, d, e, f, g, h, i = coeff.flatten()
         A4 = np.array([[a, d, e, g], [d, b, f, h], [e, f, c, i], [g, h, i, -1]])
         A3 = A4[0:3, 0:3]
         vghi = np.array([-g, -h, -i])
