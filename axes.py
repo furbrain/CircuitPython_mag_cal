@@ -66,3 +66,11 @@ class Axes:
         for i in range(3):
             new_data[..., i] = data[..., self.indices[i]] * self.polarities[i]
         return new_data
+
+    def __str__(self) -> str:
+        letters = "XYZ"
+        results = ""
+        for i in range(3):
+            results += "+" if self.polarities[i] > 0 else "-"
+            results += letters[self.indices[i]]
+        return results

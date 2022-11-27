@@ -108,3 +108,8 @@ class TestAxes(TestCase):
         ]
         for orig, fixed in tests:
             np.testing.assert_equal(fixed, axes.fix_axes(orig))
+
+    def test___str__(self):
+        tests = ["+X+Y+Z", "+x+y+z", "+y+x+z", "-x+y-z", "-z+x-Y"]
+        for test in tests:
+            self.assertEqual(test.upper(), str(Axes(test)))
