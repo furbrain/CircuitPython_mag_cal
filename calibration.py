@@ -31,21 +31,23 @@ There are several axis conventions used.
 """
 from sensor import Sensor
 
-# try:
-#     from typing import Tuple, List, Optional
-# except ImportError:
-#     # ignore if running in CircuitPython/MicroPython
-#     pass
+try:
+    from typing import Tuple
+except ImportError:
+    # ignore if running in CircuitPython/MicroPython
+    pass
 
-# # try:
-#     # work with normal numpy
-#     import numpy as np
-#     import scipy as spy
-#
-# except ImportError:
-#     # or work with ulab
-#     from ulab import numpy as np
-#     from ulab import scipy as spy
+try:
+    # work with normal numpy
+    import numpy as np
+
+    # import scipy as spy
+
+except ImportError:
+    # or work with ulab
+    from ulab import numpy as np
+
+    # from ulab import scipy as spy
 
 
 __version__ = "0.0.0+auto.0"
@@ -73,7 +75,6 @@ class Calibration:
         """
         if grav_axes is None:
             grav_axes = mag_axes
-        self.non_linear = 0
         self.mag = Sensor(axes=mag_axes)
         self.grav = Sensor(axes=grav_axes)
         self.ready = False
@@ -86,27 +87,30 @@ class Calibration:
         :rtype: str
         """
 
+    # def from_json(self, text: str) -> None:
+    #     """
+    #     Read some JSON text previosuly produced by _`to_json`
+    #
+    #     :param text: JSON text to read
+    #     :return: None
+    #     """
+    #
+    def fit_ellipsoid(
+        self, mag_data: np.ndarray, grav_data: np.ndarray
+    ) -> Tuple[float, float]:
+        """
+        Take multiple sets of readings in various directions. You can then use this function
+        to determine an ideal set of calibration coefficients
 
-# def from_json(self, text: str) -> None:
-#     """
-#     Read some JSON text previosuly produced by _`to_json`
-#
-#     :param text: JSON text to read
-#     :return: None
-#     """
-#
-# def fit_ellipsoid(
-#     self, mag_data: np.ndarray, grav_data: np.ndarray
-# ) -> Tuple[float, float]:
-#     """
-#     Take multiple sets of readings in various directions. You can then use this function
-#     to determine an ideal set of calibration coefficients
-#
-#     :param np.ndarray mag_data: Numpy array of magnetic readings of shape (N,3)
-#     :param np.ndarray grav_data: Numpy array of gravity readings of shape (M,3)
-#     :return: (mag_accuracy, grav_accuracy) How well the calibrated model fits the data.
-#       Lower numbers are better
-#     """
+        :param np.ndarray mag_data: Numpy array of magnetic readings of shape (N,3)
+        :param np.ndarray grav_data: Numpy array of gravity readings of shape (M,3)
+        :return: (mag_accuracy, grav_accuracy) How well the calibrated model fits the data.
+          Lower numbers are better
+        """
+        mag_accuracy = self.mag.fit_ellipsoid(mag_data)
+        grav_accuracy = self.grav.fit_ellipsoid(grav_data)
+        return mag_accuracy, grav_accuracy
+
 
 # def align_axes(self, data, axis="Y", non_linear=0) -> float:
 #     """

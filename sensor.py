@@ -66,6 +66,7 @@ class Sensor:
         B3 = B4[0:3, 0:3] / -B4[3, 3]
         e, v = np.linalg.eig(B3)
         self.transform = np.dot(v, np.sqrt(np.diag(e))).dot(v.transpose())
+        return self.uniformity(data)
 
     def align_to_vector(self, vector, axis):
         """
@@ -141,7 +142,7 @@ class Sensor:
         data = np.dot(data, self.transform)
         return data
 
-    def set_non_linear_params(self, params):
+    def set_non_linear_params(self, params: np.ndarray):
         """
         Set the parameters for the radial basis functions
         :param np.ndarray params: Numpy matrix or vector with N*3 elements, where N is the number
@@ -157,7 +158,7 @@ class Sensor:
         """
         self.rbfs = []
 
-    def _apply_non_linear(self, vectors):
+    def _apply_non_linear(self, vectors: np.ndarray):
         # pylint: disable=unsubscriptable-object
         vectors = np.array(vectors)
         scale = self.transform[0, 0]
@@ -166,6 +167,18 @@ class Sensor:
         vectors[..., 1] += self.rbfs[1](normalised_v[..., 1]) / scale
         vectors[..., 2] += self.rbfs[2](normalised_v[..., 2]) / scale
         return vectors
+
+    def uniformity(self, data: np.ndarray):
+        """
+        Check the uniformity of the data points after calibration. This is measured as
+          the standard deviation of the absolute magnitude of each measurement
+        :param np.ndarray data: Numpy array of shape (N,3)
+        :return: Calculated uniformity as above
+        """
+        # get the radii of of all the data points
+        radii = np.linalg.norm(self.apply(data), axis=1)
+        # get the standard deviation of these values (mean radius should be 1)
+        return np.sqrt(np.mean((radii - 1) ** 2))
 
     def as_dict(self):
         """

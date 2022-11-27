@@ -29,8 +29,8 @@ class TestSensor(TestCase):
         for mag, grav in self.fixtures.values():
             for data in (mag, grav):
                 calib = Sensor()
-                calib.fit_ellipsoid(data)
-
+                uniformity = calib.fit_ellipsoid(data)
+                self.assertGreater(0.01, uniformity)
                 new_data = calib.apply(data)
                 norms = np.linalg.norm(new_data, axis=-1)
                 self.assertGreater(1.02, norms.max())
