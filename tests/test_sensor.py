@@ -36,13 +36,16 @@ class TestSensor(TestCase):
                 self.assertGreater(1.02, norms.max())
                 self.assertLess(0.98, norms.min())
 
-    def test_align_laser(self):
+    def test_align_along_axis(self):
         non_axis_data = []
         for mag, grav in self.fixtures.values():
             for data in (mag, grav):
                 calib = Sensor()
-                calib.fit_ellipsoid(data)
+                accuracy_before = calib.fit_ellipsoid(data)
                 calib.align_along_axis([data[8:16], data[16:24]])
+                accuracy_after = calib.uniformity(data)
+                # make sure uniformity not significantly impaired by alignment
+                self.assertGreater(accuracy_before + 0.001, accuracy_after)
                 aligned_axis = calib.find_plane(data[8:16])
                 non_axis_data.append(aligned_axis[0])
                 non_axis_data.append(aligned_axis[2])

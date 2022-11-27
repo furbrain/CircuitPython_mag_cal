@@ -31,3 +31,19 @@ class TestCalibration(TestCase):
             mag_accuracy, grav_accuracy = calib.fit_ellipsoid(mag, grav)
             self.assertGreater(0.01, mag_accuracy)
             self.assertGreater(0.001, grav_accuracy)
+
+    def test_align_along_axis(self):
+        for mag, grav in self.fixtures.values():
+            calib = Calibration()
+            calib.fit_ellipsoid(mag, grav)
+            mag_aligned = [mag[8:16], mag[16:24]]
+            grav_aligned = [grav[8:16], grav[16:24]]
+            data = list(zip(mag_aligned, grav_aligned))
+            before = calib.accuracy(data)
+            calib.align_along_axis(data, axis="Y")
+            after = calib.accuracy(data)
+            print(before, after)
+            # we should expect accuracy to at least double after alignment
+            self.assertLess(2.0, before / after)
+            print(calib.get_angles(mag[8:16], grav[8:16]))
+            print(calib.get_angles(mag[16:24], grav[16:24]))

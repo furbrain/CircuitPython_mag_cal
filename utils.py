@@ -41,7 +41,7 @@ def normalise(vector: np.ndarray):
     :param np.ndarray vector:  Input vector(s)
     :return: Normalised vector(s)
     """
-    return vector / np.linalg.norm(vector, axis=-1)
+    return (vector.transpose() / np.linalg.norm(vector, axis=-1)).transpose()
 
 
 class NotCalibrated(Exception):
