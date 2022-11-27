@@ -4,8 +4,11 @@
 .. If your library file(s) are nested in a directory (e.g. /adafruit_foo/foo.py)
 .. use this format as the module name: "adafruit_foo.foo"
 
-.. automodule:: mag_cal
+.. automodule:: calibration
     :members:
 
-.. autoclass:: mag_cal.Calibration
+.. automodule:: sensor
+    :members:
+
+.. automodule:: rbf
     :members:

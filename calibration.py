@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 """
-`mag_cal`
+Calibration
 ================================================================================
 
 Calibrate magnetometer and accelerometer readings
@@ -115,6 +115,7 @@ class Calibration:
     def accuracy(self, data):
         """
         Calculate average accuracy for a set of multiple readings taken
+
         :param data: A list of paired magnetic and gravity readings e.g.:
           ``[(mag_data1, grav_data1), (mag_data2, grav_data2)]``, where ``mag_data1`` and
           ``grav_data1`` is a (N,3) numpy array of readings around the axis in the first

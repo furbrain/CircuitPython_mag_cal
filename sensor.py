@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 """
-Provides the `Sensor` class that represents a a single sensor and it's calibration
+Provides the `Sensor` class that represents a a single sensor and its calibration
 """
 from typing import List
 
@@ -72,6 +72,7 @@ class Sensor:
         """
         Rotate transformation matrix, such that any points along ``vector`` are now on the
           specified ``axis``
+
         :param np.ndarray vector: numpy array of shape (3) to align with
         :param np.ndarray axis: Axis to align to, must be one of "X", "Y", or "Z".
         """
@@ -98,10 +99,11 @@ class Sensor:
     def align_along_axis(self, data, axis="Y"):
         """
         Calculate the
+
         :param List[np.ndarray] data: A list of sets of data - numpy array of shape (N,3)
         :param str axis: Axis that the device has been rotated around, must be one of "X", "Y",
-        or "Z". Default is "Y".
-        :return:
+          or "Z". Default is "Y".
+        :return: None
         """
         result = np.zeros(3)
         if axis not in "XYZ":
@@ -145,6 +147,7 @@ class Sensor:
     def set_non_linear_params(self, params: np.ndarray):
         """
         Set the parameters for the radial basis functions
+
         :param np.ndarray params: Numpy matrix or vector with N*3 elements, where N is the number
           of parameters per axis
         """
@@ -153,8 +156,7 @@ class Sensor:
 
     def set_linear(self):
         """
-        Do not use non-linear adjustments
-        :return:
+        Disable non-linear adjustments
         """
         self.rbfs = []
 
@@ -172,6 +174,7 @@ class Sensor:
         """
         Check the uniformity of the data points after calibration. This is measured as
           the standard deviation of the absolute magnitude of each measurement
+
         :param np.ndarray data: Numpy array of shape (N,3)
         :return: Calculated uniformity as above
         """
@@ -183,6 +186,7 @@ class Sensor:
     def as_dict(self):
         """
         Return the calibration parameters as a dict, can be reloaded using `Sensor.from_dict`
+
         :return: Dict containing all the calibration data for this sensor
         """
         results = {
@@ -198,6 +202,7 @@ class Sensor:
         """
         Creata a new `Sensor` instance from the given dict, which should have been created
           using `Sensor.as_dict`.
+
         :param dict dct: Dict of values as created by `Sensor.as_dict`
         :return: New Sensor object, initialised with given data
         """
