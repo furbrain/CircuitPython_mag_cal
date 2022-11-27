@@ -14,7 +14,7 @@ class RBF:
     """
 
     def __init__(self, params):
-        self.params = np.array(params).reshape((-1, 1))
+        self.params: np.ndarray = np.array(params).reshape((-1, 1))
         if len(params) == 1:
             self.offsets = [0.0]
             self.epsilon = 0.5
@@ -33,6 +33,13 @@ class RBF:
 
     def __repr__(self):
         return str(self)
+
+    def as_list(self):
+        """
+        Convert to a list of parameters
+        :return: List of floats - these are the parameters for this function
+        """
+        return self.params.tolist()
 
     def get_gaussians(self, x):
         """

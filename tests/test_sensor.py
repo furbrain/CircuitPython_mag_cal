@@ -8,10 +8,10 @@ from unittest import TestCase
 
 import numpy as np
 
-from mag_cal import Transform
+from sensor import Sensor
 
 
-class TestTransform(TestCase):
+class TestSensor(TestCase):
     def setUp(self) -> None:
         self.fixtures = {}
         for fname in (Path(__file__).parent / "fixtures" / "cal_data").glob("*.json"):
@@ -28,10 +28,25 @@ class TestTransform(TestCase):
     def test_fit_ellipsoid(self):
         for mag, grav in self.fixtures.values():
             for data in (mag, grav):
-                calib = Transform()
+                calib = Sensor()
                 calib.fit_ellipsoid(data)
 
                 new_data = calib.apply(data)
                 norms = np.linalg.norm(new_data, axis=-1)
                 self.assertGreater(1.02, norms.max())
                 self.assertLess(0.98, norms.min())
+
+    def test_align_laser(self):
+        non_axis_data = []
+        for mag, grav in self.fixtures.values():
+            for data in (mag, grav):
+                calib = Sensor()
+                calib.fit_ellipsoid(data)
+                calib.align_along_axis([data[8:16], data[16:24]])
+                aligned_axis = calib.find_plane(data[8:16])
+                non_axis_data.append(aligned_axis[0])
+                non_axis_data.append(aligned_axis[2])
+                aligned_axis = calib.find_plane(data[16:24])
+                non_axis_data.append(aligned_axis[0])
+                non_axis_data.append(aligned_axis[2])
+        self.assertLess(max(non_axis_data), 0.005)  # equivalent to less than
