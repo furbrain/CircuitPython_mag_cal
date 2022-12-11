@@ -1,21 +1,16 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022 Phil Underwood for Underwood Underground
+# SPDX-FileCopyrightText: Copyright (c) 2000 Travis E Oliphatn
 #
 # SPDX-License-Identifier: Unlicense
 """
 This is an implementation of the nelder-mead optimisation algorithm, adapted from
-`scipy.optimize.fmin`.
+`scipy.optimize.fmin`, written by Travis E Oliphant
 """
 
 try:
     import numpy as np
 except ImportError:
     from ulab import numpy as np
-
-
-RHO = 1
-CHI = 2
-PSI = 0.5
-SIGMA = 0.5
 
 NONZDELT = 0.05
 ZDELT = 0.00025
@@ -25,18 +20,7 @@ class Minimizer:
     """
     Minimization of scalar function of one or more variables using the
     Nelder-Mead algorithm.
-    Options
-    -------
-    maxiter: int
-        Maximum allowed number of iterations.
-        Will default to ``dims*200``, where ``dims`` is the number of
-        variables.
-    xatol : float, optional
-        Absolute error in xopt between iterations that is acceptable for
-        convergence.
-    fatol : number, optional
-        Absolute error in func(xopt) between iterations that is acceptable for
-        convergence.
+
     References
     ----------
     .. [1] Gao, F. and Han, L.
@@ -45,17 +29,41 @@ class Minimizer:
        51:1, pp. 259-277
     """
 
-    # pylint: disable=invalid-name
+    # pylint: disable=invalid-name,too-many-arguments
     def __init__(
         self,
         func,
         x0,
+        adaptive=False,
         xatol=1e-4,
         fatol=1e-4,
     ):
+        """
+        Create a Minimizer object, you can then call with optimize to get results.
 
+        :param callable func: Function to be called, must return a single float
+        :param np.ndarray x0: Initial value to start from
+        :param bool adaptive: Whether to use adaptive methods - can be useful when solving
+          higher dimensional problems
+        :param float xatol: Absolute error in xopt between iterations that is acceptable for
+          convergence. Default is 0.0001
+        :param float fatol: Absolute error in func(xopt) between iterations that is acceptable for
+        convergence. Default is 0.0001
+        """
         # create the initial simplex
         self.dims = len(x0)
+        if adaptive:
+            dim = float(len(x0))
+            self.rho = 1
+            self.chi = 1 + 2 / dim
+            self.psi = 0.75 - 1 / (2 * dim)
+            self.sigma = 1 - 1 / dim
+        else:
+            self.rho = 1
+            self.chi = 2
+            self.psi = 0.5
+            self.sigma = 0.5
+
         self.sim = np.empty((self.dims + 1, self.dims))
         self.sim[0] = x0
         self.xatol = xatol
@@ -77,7 +85,8 @@ class Minimizer:
     def optimize(self, maxiter=None):
         """
         Perform the optimization.
-        :param maxiter: How many cycles to run before giving up
+        :param maxiter: How many cycles to run before giving up, will default to dims*200 if not
+          specified
         :return: Dictionary containing the following elements:
           status
             "Success" if solution has converged or "Max Iterations" if not
@@ -106,7 +115,7 @@ class Minimizer:
 
             # calculate centroid, by calculating sum of all vertices, minus the worst
             xbar = (np.sum(self.sim, axis=0) - sim_worst) / self.dims
-            xr = (1 + RHO) * xbar - RHO * sim_worst
+            xr = (1 + self.rho) * xbar - self.rho * sim_worst
             fxr = self.func(xr)
 
             if fxr < self.fsim[best]:
@@ -125,9 +134,9 @@ class Minimizer:
         x = self.sim[best]
 
         if iterations >= maxiter:
-            msg = "Max Iterations"
+            msg = "max iterations"
         else:
-            msg = "Success"
+            msg = "success"
 
         return {
             "status": msg,
@@ -140,12 +149,16 @@ class Minimizer:
     def _shrink(self, best):
         for j in range(self.dims + 1):
             if j != best:
-                self.sim[j] = self.sim[best] + SIGMA * (self.sim[j] - self.sim[best])
+                self.sim[j] = self.sim[best] + self.sigma * (
+                    self.sim[j] - self.sim[best]
+                )
                 self.fsim[j] = self.func(self.sim[j])
 
     def _contract(self, fxr, sim_worst, worst, xbar):
         if fxr < self.fsim[worst]:
-            xc = (1 + PSI * RHO) * xbar - PSI * RHO * self.sim[worst]
+            xc = (1 + self.psi * self.rho) * xbar - self.psi * self.rho * self.sim[
+                worst
+            ]
             fxc = self.func(xc)
             if fxc <= fxr:
                 self.sim[worst] = xc
@@ -153,7 +166,7 @@ class Minimizer:
                 return False
         else:
             # Perform an inside contraction
-            xcc = (1 - PSI) * xbar + PSI * sim_worst
+            xcc = (1 - self.psi) * xbar + self.psi * sim_worst
             fxcc = self.func(xcc)
             if fxcc < self.fsim[worst]:
                 self.sim[worst] = xcc
@@ -162,7 +175,7 @@ class Minimizer:
         return True
 
     def _extend(self, fxr, worst, xbar, xr):
-        xe = (1 + RHO * CHI) * xbar - RHO * CHI * self.sim[worst]
+        xe = (1 + self.rho * self.chi) * xbar - self.rho * self.chi * self.sim[worst]
         fxe = self.func(xe)
         if fxe < fxr:
             self.sim[worst] = xe
@@ -205,8 +218,9 @@ class CheckOptimize:
         return f
 
 
-chk = CheckOptimize()
-optimizer = Minimizer(chk.func, np.array((1.0, 1.0, 1.0)))
-res = optimizer.optimize()
-print(res)
-print(chk.funccalls)
+if __name__ == "__main__":
+    chk = CheckOptimize()
+    optimizer = Minimizer(chk.func, np.array((1.0, 1.0, 1.0)))
+    res = optimizer.optimize()
+    print(res)
+    print(chk.funccalls)
