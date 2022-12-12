@@ -298,8 +298,9 @@ class Calibration:
         params = self._get_lstsq_non_linear_params(param_count, expected_mags, raw_mags)
         all_params = np.zeros(param_count * 3)
         all_params[:param_count] = params[:param_count]
-        all_params[-param_count] = params[-param_count]
-        self.mag.set_non_linear_params(params)
+        all_params[-param_count:] = params[-param_count:]
+        print(all_params)
+        self.mag.set_non_linear_params(all_params)
         return self.accuracy(data)
 
     @staticmethod
