@@ -137,24 +137,39 @@ class TestCalibration(TestCase):
             axs[i, j - 1].pcolormesh(X, Y, Z)
         plt.show()
 
+    @unittest.skip
     def test_display_non_linear_terms(self):
-        # pylint: disable=invalid-name,import-outside-toplevel,cell-var-from-loop
+        # pylint: disable=invalid-name,import-outside-toplevel,too-many-locals
         import matplotlib.pyplot as plt
 
         _, axs = plt.subplots(3, len(self.fixtures) // 3, sharex=True, sharey=True)
-
+        params = 5
         for i, (mag, grav, aligned_data) in enumerate(self.fixtures.values()):
             calib = Calibration()
             calib.fit_ellipsoid(mag, grav)
-            calib.align_along_axis(aligned_data, axis="Y")
+            linear = calib.align_along_axis(aligned_data, axis="Y")
             xs = np.linspace(-1, 1, 40)
-            calib.apply_non_linear_correction(aligned_data, param_count=3)
+            _, min_acc = calib.apply_non_linear_correction(
+                aligned_data, param_count=params
+            )
             y1 = calib.mag.rbfs[0](xs)
             y2 = calib.mag.rbfs[2](xs)
-            calib.apply_non_linear_correction_quick(aligned_data, param_count=3)
+            q1_acc = calib.apply_non_linear_correction_quick(
+                aligned_data, param_count=params
+            )
             yq1 = calib.mag.rbfs[0](xs)
             yq2 = calib.mag.rbfs[2](xs)
-            axs[i // 3, i % 3].plot(
-                xs, y1, "r:", xs, y2, "b:", xs, yq1, "r-", xs, yq2, "b-"
+            q2_acc = calib.apply_non_linear_correction_quick_direct(
+                aligned_data, param_count=params
             )
+            yq21 = calib.mag.rbfs[0](xs)
+            yq22 = calib.mag.rbfs[2](xs)
+            ax = axs[i // 3, i % 3]
+            ax.plot(xs, y1, "r-", label=f"minimizer({min_acc:.4f})")
+            ax.plot(xs, y2, "b-", label=f"(linear({linear:.4f})")
+            ax.plot(xs, yq1, "r:", label=f"quick_1({q1_acc:.4f})")
+            ax.plot(xs, yq2, "b:")
+            ax.plot(xs, yq21, "r--", label=f"quick_2({q2_acc:.4f})")
+            ax.plot(xs, yq22, "b--")
+            ax.legend()
         plt.show()
