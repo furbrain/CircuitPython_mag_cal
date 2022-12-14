@@ -88,6 +88,27 @@ class TestCalibration(TestCase):
         print(total_non_linear / total_axis)
 
     # we skip this as it is more of a debugging tool than true test
+    @staticmethod
+    def test_angles_to_matrix_singles():
+        angles = [35, +20, 10]
+
+        matrix = Calibration.angles_to_matrix(*angles)
+        new_angles = Calibration.matrix_to_angles(matrix)
+        np.testing.assert_array_almost_equal(angles, new_angles)
+
+    @staticmethod
+    def test_angles_to_matrix_multiple():
+        azimuths = np.random.uniform(0, 360, 20)
+        inclinations = np.random.uniform(-90, 90, 20)
+        rolls = np.random.uniform(-180, 180, 20)
+
+        matrices = Calibration.angles_to_matrix(azimuths, inclinations, rolls)
+        new_az, new_inc, new_roll = Calibration.matrix_to_angles(matrices)
+
+        np.testing.assert_array_almost_equal(azimuths, new_az)
+        np.testing.assert_array_almost_equal(inclinations, new_inc)
+        np.testing.assert_array_almost_equal(rolls, new_roll)
+
     @unittest.skip
     def test_display_non_linear_maps(self):
         # pylint: disable=invalid-name,import-outside-toplevel,cell-var-from-loop
@@ -116,23 +137,24 @@ class TestCalibration(TestCase):
             axs[i, j - 1].pcolormesh(X, Y, Z)
         plt.show()
 
-    @staticmethod
-    def test_angles_to_matrix_singles():
-        angles = [35, +20, 10]
+    def test_display_non_linear_terms(self):
+        # pylint: disable=invalid-name,import-outside-toplevel,cell-var-from-loop
+        import matplotlib.pyplot as plt
 
-        matrix = Calibration.angles_to_matrix(*angles)
-        new_angles = Calibration.matrix_to_angles(matrix)
-        np.testing.assert_array_almost_equal(angles, new_angles)
+        _, axs = plt.subplots(3, len(self.fixtures) // 3, sharex=True, sharey=True)
 
-    @staticmethod
-    def test_angles_to_matrix_multiple():
-        azimuths = np.random.uniform(0, 360, 20)
-        inclinations = np.random.uniform(-90, 90, 20)
-        rolls = np.random.uniform(-180, 180, 20)
-
-        matrices = Calibration.angles_to_matrix(azimuths, inclinations, rolls)
-        new_az, new_inc, new_roll = Calibration.matrix_to_angles(matrices)
-
-        np.testing.assert_array_almost_equal(azimuths, new_az)
-        np.testing.assert_array_almost_equal(inclinations, new_inc)
-        np.testing.assert_array_almost_equal(rolls, new_roll)
+        for i, (mag, grav, aligned_data) in enumerate(self.fixtures.values()):
+            calib = Calibration()
+            calib.fit_ellipsoid(mag, grav)
+            calib.align_along_axis(aligned_data, axis="Y")
+            xs = np.linspace(-1, 1, 40)
+            calib.apply_non_linear_correction(aligned_data, param_count=3)
+            y1 = calib.mag.rbfs[0](xs)
+            y2 = calib.mag.rbfs[2](xs)
+            calib.apply_non_linear_correction_quick(aligned_data, param_count=3)
+            yq1 = calib.mag.rbfs[0](xs)
+            yq2 = calib.mag.rbfs[2](xs)
+            axs[i // 3, i % 3].plot(
+                xs, y1, "r:", xs, y2, "b:", xs, yq1, "r-", xs, yq2, "b-"
+            )
+        plt.show()
