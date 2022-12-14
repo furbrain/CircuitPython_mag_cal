@@ -247,12 +247,12 @@ class Calibration:
             if sensor & self.MAGNETOMETER:
                 params = x[:params_per_sensor]
                 # do not optimize axis around which we are rotating - set these coefficients to zero
-                params = np.insert(params, axis_index * 3, [0, 0, 0])
+                params = np.insert(params, axis_index * param_count, [0] * param_count)
                 self.mag.set_non_linear_params(params)
             if sensor & self.ACCELEROMETER:
                 params = x[-params_per_sensor:]
                 # do not optimize axis around which we are rotating - set these coefficients to zero
-                params = np.insert(params, axis_index * 3, [0, 0, 0])
+                params = np.insert(params, axis_index * param_count, [0] * param_count)
                 self.grav.set_non_linear_params(params)
             return self.accuracy(data) + sum(self.uniformity(all_mag, all_grav))
 
@@ -264,7 +264,8 @@ class Calibration:
         min_func(results["x"])
         return results["iterations"], self.accuracy(data)
 
-    def apply_non_linear_correction2(self, data, param_count: int = 3):
+    def apply_non_linear_correction_quick(self, data, param_count: int = 3):
+        # pylint: disable=invalid-name,too-many-locals
         """
         Compensate for devices which do not have a linear response between the
         magnetic or gravity field and their output. It is recommended to use a

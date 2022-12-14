@@ -50,6 +50,8 @@ class TestCalibration(TestCase):
             self.assertLess(2.0, before / after)
 
     def test_non_linear(self):
+        total_non_linear = 0
+        total_axis = 0
         for mag, grav, aligned_data in self.fixtures.values():
             calib = Calibration()
             calib.fit_ellipsoid(mag, grav)
@@ -58,22 +60,32 @@ class TestCalibration(TestCase):
             _, non_linear = calib.apply_non_linear_correction(
                 aligned_data, sensor=Calibration.MAGNETOMETER, param_count=3
             )
+            total_non_linear += non_linear
+            total_axis += axis
             print(non_linear, axis)
             self.assertLess(
                 non_linear, axis
             )  # check non_linear process improves accuracy!
+        print(total_non_linear / total_axis)
 
-    def test_non_linear2(self):
+    def test_non_linear_quick(self):
+        total_non_linear = 0
+        total_axis = 0
         for mag, grav, aligned_data in self.fixtures.values():
             calib = Calibration()
             calib.fit_ellipsoid(mag, grav)
             calib.accuracy(aligned_data)
             axis = calib.align_along_axis(aligned_data, axis="Y")
-            non_linear = calib.apply_non_linear_correction2(aligned_data, param_count=3)
+            non_linear = calib.apply_non_linear_correction_quick(
+                aligned_data, param_count=5
+            )
+            total_non_linear += non_linear
+            total_axis += axis
             print(non_linear, axis)
             # self.assertLess(
             #    non_linear, axis
             # )  # check non_linear process improves accuracy!
+        print(total_non_linear / total_axis)
 
     # we skip this as it is more of a debugging tool than true test
     @unittest.skip
