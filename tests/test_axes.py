@@ -5,7 +5,7 @@ from unittest import TestCase
 
 import numpy as np
 
-from axes import Axes
+from mag_cal.axes import Axes
 
 
 class TestAxes(TestCase):

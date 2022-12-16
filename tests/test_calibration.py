@@ -2,15 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 import itertools
-import json
-import math
 import unittest
 from pathlib import Path
 from unittest import TestCase
 
 import numpy as np
 
-from calibration import Calibration
+from mag_cal.calibration import Calibration
+from mag_cal.utils import read_fixture
 
 
 class TestCalibration(TestCase):
@@ -19,16 +18,7 @@ class TestCalibration(TestCase):
         self.fixtures = {}
         for fname in (Path(__file__).parent / "fixtures" / "cal_data").glob("*.json"):
             with open(fname) as fixture:
-                data = json.load(fixture)
-                mag = data["shots"]["mag"]
-                grav = data["shots"]["grav"]
-                mag = [x for x in mag if not math.isnan(x)]
-                mag = np.reshape(mag, (-1, 3))
-                grav = [x for x in grav if not math.isnan(x)]
-                grav = np.reshape(grav, (-1, 3))
-                mag_aligned = [mag[8:16], mag[16:24]]
-                grav_aligned = [grav[8:16], grav[16:24]]
-                aligned_data = list(zip(mag_aligned, grav_aligned))
+                aligned_data, grav, mag = read_fixture(fixture.read())
                 self.fixtures[fname] = (mag, grav, aligned_data)
 
     def test_fit_ellipsoid(self):
