@@ -19,8 +19,7 @@ class TestSensor(TestCase):
                 self.fixtures[fname] = (mag, grav)
 
     def test_fit_ellipsoid(self):
-        for name, (mag, grav) in self.fixtures.items():
-            print(f"Fixture: {name}")
+        for _, (mag, grav) in self.fixtures.items():
             for data in (mag, grav):
                 calib = Sensor()
                 uniformity = calib.fit_ellipsoid(data)
