@@ -2,39 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 """
-Calibration
-================================================================================
-
-Calibrate magnetometer and accelerometer readings
-
-
-* Author(s): Phil Underwood
-
-Implementation Notes
---------------------
-
-**Software and Dependencies:**
-
-* Adafruit CircuitPython firmware for the supported boards: https://circuitpython.org/downloads
-
-
-Axes
-----
-
-There are several axis conventions used.
-
-* World coordinates: this represents the "real world", X is due east, Y is due North, Z is Up
-* Device coordinates: this represents the device. Y is the primary axis - the direction of
-  travel of direction or direction of a pointer. Z is up, and X is to the right if Y is
-  facing away from you and Z is up.
-
+Calibration class: main class to use
 """
 import json
 
-import nm
-from rbf import RBF
-from sensor import Sensor
-from utils import normalise, solve_least_squares
+from . import nm
+from .rbf import RBF
+from .sensor import Sensor
+from .utils import normalise, solve_least_squares, cross
 
 try:
     from typing import Tuple, Dict
@@ -57,6 +32,10 @@ except ImportError:
 
 __version__ = "0.0.0+auto.0"
 __repo__ = "https://github.com/furbrain/CircuitPython_mag_cal.git"
+
+
+def _vector_from_matrices(matrix: np.ndarray, i: int, j: int):
+    return np.array([x[i, j] for x in matrix])
 
 
 class Calibration:
@@ -238,22 +217,36 @@ class Calibration:
             params_total = params_per_sensor * 2
         else:
             params_total = params_per_sensor
-        all_mag = np.concatenate([x[0] for x in data])
-        all_grav = np.concatenate([x[1] for x in data])
+        all_mag = np.concatenate(tuple(x[0] for x in data))
+        all_grav = np.concatenate(tuple(x[1] for x in data))
         axis_index = "XYZ".index(axis.upper())  # which axis by number...
 
         # this is the minimisation function we wish to calculate...
         def min_func(x):
             if sensor & self.MAGNETOMETER:
                 params = x[:params_per_sensor]
+                final_params = np.zeros(param_count * 3)
                 # do not optimize axis around which we are rotating - set these coefficients to zero
-                params = np.insert(params, axis_index * param_count, [0] * param_count)
-                self.mag.set_non_linear_params(params)
+                if axis_index == 0:
+                    final_params[:params_per_sensor] = params
+                elif axis_index == 1:
+                    final_params[:param_count] = params[:param_count]
+                    final_params[-param_count:] = params[-param_count:]
+                else:
+                    final_params[-params_per_sensor:] = params[-params_per_sensor:]
+                self.mag.set_non_linear_params(final_params)
             if sensor & self.ACCELEROMETER:
                 params = x[-params_per_sensor:]
                 # do not optimize axis around which we are rotating - set these coefficients to zero
-                params = np.insert(params, axis_index * param_count, [0] * param_count)
-                self.grav.set_non_linear_params(params)
+                # do not optimize axis around which we are rotating - set these coefficients to zero
+                if axis_index == 0:
+                    final_params[:params_per_sensor] = params
+                elif axis_index == 1:
+                    final_params[:param_count] = params[:param_count]
+                    final_params[-param_count:] = params[-param_count:]
+                else:
+                    final_params[-params_per_sensor:] = params[-params_per_sensor:]
+                self.grav.set_non_linear_params(final_params)
             return self.accuracy(data) + sum(self.uniformity(all_mag, all_grav))
 
         x_initial = np.full(params_total, 0.0)
@@ -300,7 +293,6 @@ class Calibration:
         all_params = np.zeros(param_count * 3)
         all_params[:param_count] = params[:param_count]
         all_params[-param_count:] = params[-param_count:]
-        print(all_params)
         self.mag.set_non_linear_params(all_params)
         return self.accuracy(data)
 
@@ -316,7 +308,7 @@ class Calibration:
             temp_input[0, :param_count] = factors[0]
             temp_input[1, -param_count:] = factors[2]
             input_data = np.concatenate((input_data, temp_input))
-            output_data = np.concatenate((output_data, [diff[0], diff[2]]))
+            output_data = np.concatenate((output_data, np.array([diff[0], diff[2]])))
         params = solve_least_squares(input_data, output_data)
         return params
 
@@ -332,14 +324,14 @@ class Calibration:
             s = np.sin(np.radians(roll))
             rot_mat = np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
             raw_mag = self.mag.apply(m)
-            rotated_mag = np.dot(raw_mag, rot_mat.T)
+            rotated_mag = np.dot(raw_mag.reshape((1, 3)), rot_mat.transpose())
             raw_mags.append(raw_mag)
-            rotated_mags.append(rotated_mag)
+            rotated_mags.append(rotated_mag.reshape((3,)))
             rot_mats.append(rot_mat)
-        average_vector = np.mean(rotated_mags, axis=0)
+        average_vector = np.mean(np.array(rotated_mags), axis=0).reshape((1, 3))
         for rot_mat in rot_mats:
-            expected_mags.append(np.dot(average_vector, rot_mat))
-        return expected_mags, raw_mags
+            expected_mags.append(np.dot(average_vector, rot_mat).reshape((3,)))
+        return expected_mags, np.array(raw_mags)
 
     def apply_non_linear_correction2(self, data, param_count: int = 3):
         # pylint: disable=invalid-name,too-many-locals
@@ -462,7 +454,9 @@ class Calibration:
         :rtype: Numpy array of same shape as mag, with device orientation.
         """
         orientation = self.get_orientation_matrix(mag, grav)
-        return orientation[..., :, 1]
+        if isinstance(orientation, list) and len(orientation[0].shape) == 2:
+            return np.array([x[:, 1] for x in orientation])
+        return orientation[:, 1]
 
     def get_orientation_matrix(self, mag, grav) -> np.ndarray:
         """
@@ -477,11 +471,12 @@ class Calibration:
         """
         mag = normalise(self.mag.apply(mag))
         upward = normalise(self.grav.apply(grav)) * -1
-        east = normalise(np.cross(mag, upward))
-        north = normalise(np.cross(upward, east))
-        orientation = np.array((east, north, upward))
-        if len(orientation.shape) == 3:
-            orientation = orientation.transpose((1, 0, 2))
+        east = normalise(cross(mag, upward))
+        north = normalise(cross(upward, east))
+        if len(north.shape) > 1:
+            orientation = [np.array([e, n, u]) for e, n, u in zip(east, north, upward)]
+        else:
+            orientation = np.array((east, north, upward))
         return orientation
 
     def get_angles(self, mag, grav) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -505,9 +500,21 @@ class Calibration:
         :param np.ndarray matrix:
         :return: azimuth, pitch, roll
         """
-        theta1 = np.arctan2(matrix[..., 0, 1], matrix[..., 1, 1])
-        theta2 = np.arctan2(matrix[..., 2, 1] * np.cos(theta1), matrix[..., 1, 1])
-        theta3 = np.arctan2(-matrix[..., 2, 0], matrix[..., 2, 2])
+        if isinstance(matrix, list) and len(matrix[0].shape) == 2:
+            m01 = _vector_from_matrices(matrix, 0, 1)
+            m11 = _vector_from_matrices(matrix, 1, 1)
+            m21 = _vector_from_matrices(matrix, 2, 1)
+            m20 = _vector_from_matrices(matrix, 2, 0)
+            m22 = _vector_from_matrices(matrix, 2, 2)
+        else:
+            m01 = matrix[0, 1]
+            m11 = matrix[1, 1]
+            m21 = matrix[2, 1]
+            m20 = matrix[2, 0]
+            m22 = matrix[2, 2]
+        theta1 = np.arctan2(m01, m11)
+        theta2 = np.arctan2(m21 * np.cos(theta1), m11)
+        theta3 = np.arctan2(-m20, m22)
         azimuth = np.degrees(theta1) % 360
         inclination = (
             (np.degrees(theta2) + 90) % 180
@@ -515,9 +522,9 @@ class Calibration:
         roll = np.degrees(theta3)
         return azimuth, inclination, roll
 
-    @staticmethod
+    @classmethod
     def angles_to_matrix(
-        azimuth: np.ndarray, inclination: np.ndarray, roll: np.ndarray
+        cls, azimuth: np.ndarray, inclination: np.ndarray, roll: np.ndarray
     ):
         # pylint: disable=invalid-name
         """
@@ -529,23 +536,23 @@ class Calibration:
         :param roll: roll around y axis
         :return:
         """
-        theta1 = np.radians(-azimuth)
-        theta2 = np.radians(inclination)
-        theta3 = np.radians(roll)
-        c1 = np.cos(theta1)
-        s1 = np.sin(theta1)
-        c2 = np.cos(theta2)
-        s2 = np.sin(theta2)
-        c3 = np.cos(theta3)
-        s3 = np.sin(theta3)
+        if isinstance(azimuth, (float, int)) or len(azimuth) == 1:
+            theta1 = np.radians(-azimuth)
+            theta2 = np.radians(inclination)
+            theta3 = np.radians(roll)
+            c1 = np.cos(theta1)
+            s1 = np.sin(theta1)
+            c2 = np.cos(theta2)
+            s2 = np.sin(theta2)
+            c3 = np.cos(theta3)
+            s3 = np.sin(theta3)
 
-        matrix = np.array(
-            [
-                [c1 * c3 - s1 * s2 * s3, -c2 * s1, c1 * s3 + c3 * s1 * s2],
-                [c3 * s1 + c1 * s2 * s3, c1 * c2, s1 * s3 - c1 * c3 * s2],
-                [-c2 * s3, s2, c2 * c3],
-            ]
-        )
-        if len(matrix.shape) > 2:
-            matrix = np.moveaxis(matrix, -1, 0)
-        return matrix
+            matrix = np.array(
+                [
+                    [c1 * c3 - s1 * s2 * s3, -c2 * s1, c1 * s3 + c3 * s1 * s2],
+                    [c3 * s1 + c1 * s2 * s3, c1 * c2, s1 * s3 - c1 * c3 * s2],
+                    [-c2 * s3, s2, c2 * c3],
+                ]
+            )
+            return matrix
+        return [cls.angles_to_matrix(*args) for args in zip(azimuth, inclination, roll)]

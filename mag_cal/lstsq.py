@@ -7,7 +7,6 @@ adapted from the `numpy.linalg.lstsq` implementation.
 """
 
 from ulab import numpy as np
-from ulab import scipy as spy
 
 # pylint: disable=invalid-name
 def lstsq(a, b):
@@ -86,11 +85,10 @@ def lstsq(a, b):
     if m > n:
         # system is overdetermined or at least appears to be so
         q, r = np.linalg.qr(a)
-        x = spy.linalg.solve_triangular(r, np.dot(q.transpose(), b))
+        x = np.dot(np.dot(np.linalg.inv(r), q.transpose()), b)
     else:
         # system is underdetermined
         q, r = np.linalg.qr(a.transpose())
-        print(q, r)
         x = np.dot(q, np.dot(np.linalg.inv(r.transpose()), b))
 
     resids = np.linalg.norm(np.dot(a, x) - b, axis=0)

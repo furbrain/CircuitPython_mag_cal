@@ -5,7 +5,10 @@
 Switch between orthogonal coordinate systems
 """
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    from ulab import numpy as np
 
 
 class Axes:
@@ -61,10 +64,15 @@ class Axes:
         :param data: raw sensor data as a np.array((...,3))
         :return: np.array with same dimensions as ``data``
         """
-        new_data = np.zeros_like(data)
         data = np.array(data)
+        new_data = np.zeros(data.shape)
         for i in range(3):
-            new_data[..., i] = data[..., self.indices[i]] * self.polarities[i]
+            if len(data.shape) == 1:
+                new_data[i] = data[self.indices[i]] * self.polarities[i]
+            elif len(data.shape) == 2:
+                new_data[:, i] = data[:, self.indices[i]] * self.polarities[i]
+            if len(data.shape) == 3:
+                new_data[:, :, i] = data[:, :, self.indices[i]] * self.polarities[i]
         return new_data
 
     def __str__(self) -> str:

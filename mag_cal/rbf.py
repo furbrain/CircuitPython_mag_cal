@@ -5,7 +5,10 @@
 Implementation of a Radial Basis Function using a gaussian composite.
 """
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    from ulab import numpy as np
 
 
 class RBF:
@@ -14,18 +17,19 @@ class RBF:
     """
 
     def __init__(self, params):
-        self.params: np.ndarray = np.array(params).reshape((-1, 1))
+        num_params = len(params)
+        self.params: np.ndarray = np.array(params).reshape((num_params, 1))
         if len(params) == 1:
             self.offsets = [0.0]
             self.epsilon = 0.5
         else:
-            self.offsets = np.linspace(-1, 1, len(params)).reshape((-1, 1))
+            self.offsets = np.linspace(-1, 1, num_params).reshape((num_params, 1))
             self.epsilon = 1.5 / len(params)
 
     def __call__(self, x, gaussians=None):
         if gaussians is None:
             gaussians = self.get_gaussians(x)
-        result = gaussians.T @ self.params
+        result = np.dot(gaussians.transpose(), self.params)
         return result[:, 0]
 
     def __str__(self):
@@ -47,7 +51,7 @@ class RBF:
         :param x:
         :return:
         """
-        x = x.reshape((1, -1))
+        x = x.reshape((1, x.size))
         distances = x - self.offsets
         gaussians = np.exp(-((distances / self.epsilon) ** 2))
         return gaussians

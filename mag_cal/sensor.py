@@ -4,13 +4,19 @@
 """
 Provides the `Sensor` class that represents a a single sensor and its calibration
 """
-from typing import List
+try:
+    from typing import List
+except ImportError:
+    pass
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    from ulab import numpy as np
 
-from axes import Axes
-from utils import solve_least_squares, normalise, NotCalibrated
-from rbf import RBF
+from .axes import Axes
+from .utils import solve_least_squares, normalise, NotCalibrated, cross
+from .rbf import RBF
 
 
 class Sensor:
@@ -48,7 +54,7 @@ class Sensor:
         x = fixed_data[:, 0:1]
         y = fixed_data[:, 1:2]
         z = fixed_data[:, 2:3]
-        output_array = np.ones_like(x)
+        output_array = np.ones(x.shape)
 
         input_array = np.concatenate(
             (x * x, y * y, z * z, 2 * x * y, 2 * x * z, 2 * y * z, 2 * x, 2 * y, 2 * z),
@@ -60,12 +66,12 @@ class Sensor:
         A3 = A4[0:3, 0:3]
         vghi = np.array([-g, -h, -i])
         self.centre = solve_least_squares(A3, vghi)
-        T = np.identity(4)
+        T = np.eye(4)
         T[3, 0:3] = self.centre
         B4 = np.dot(np.dot(T, A4), T.transpose())
         B3 = B4[0:3, 0:3] / -B4[3, 3]
         e, v = np.linalg.eig(B3)
-        self.transform = np.dot(v, np.sqrt(np.diag(e))).dot(v.transpose())
+        self.transform = np.dot(np.dot(v, np.sqrt(np.diag(e))), v.transpose())
         return self.uniformity(data)
 
     def align_to_vector(self, vector, axis):
@@ -78,16 +84,16 @@ class Sensor:
         """
         if axis == "X":
             vector_x = vector
-            vector_z = np.cross(vector_x, np.array((0, 1, 0)))
-            vector_y = np.cross(vector_z, vector_x)
+            vector_z = cross(vector_x, np.array((0, 1, 0)))
+            vector_y = cross(vector_z, vector_x)
         elif axis == "Y":
             vector_y = vector
-            vector_x = np.cross(vector_y, np.array((0, 0, 1)))
-            vector_z = np.cross(vector_x, vector_y)
+            vector_x = cross(vector_y, np.array((0, 0, 1)))
+            vector_z = cross(vector_x, vector_y)
         elif axis == "Z":
             vector_z = vector
-            vector_y = np.cross(vector_z, np.array((1, 0, 0)))
-            vector_x = np.cross(vector_y, vector_z)
+            vector_y = cross(vector_z, np.array((1, 0, 0)))
+            vector_x = cross(vector_y, vector_z)
         else:
             raise ValueError("Axis must be X, Y or Z")
         vector_x = normalise(vector_x)
@@ -124,7 +130,7 @@ class Sensor:
         :return: Numpy array with the vector corresponding to the plane that best fits the data
         """
         data = self.apply(data)
-        output = np.ones_like(data[:, 0])
+        output = np.ones(data.shape[:1])
         result = solve_least_squares(data, output)
         return normalise(result)
 
@@ -141,7 +147,10 @@ class Sensor:
         data -= self.centre
         if self.rbfs:
             data = self._apply_non_linear(data)
-        data = np.dot(data, self.transform)
+        if len(data.shape) == 1:
+            data = np.dot(data.reshape((1, 3)), self.transform)[0]
+        else:
+            data = np.dot(data, self.transform)
         return data
 
     def set_non_linear_params(self, params: np.ndarray):
@@ -151,7 +160,8 @@ class Sensor:
         :param np.ndarray params: Numpy matrix or vector with N*3 elements, where N is the number
           of parameters per axis
         """
-        params = np.array(params).reshape((3, -1))
+        params = np.array(params)
+        params = params.reshape((3, params.size // 3))
         self.rbfs = [RBF(p) for p in params]
 
     def set_linear(self):
@@ -165,9 +175,14 @@ class Sensor:
         vectors = np.array(vectors)
         scale = self.transform[0, 0]
         normalised_v = vectors * scale
-        vectors[..., 0] += self.rbfs[0](normalised_v[..., 0]) / scale
-        vectors[..., 1] += self.rbfs[1](normalised_v[..., 1]) / scale
-        vectors[..., 2] += self.rbfs[2](normalised_v[..., 2]) / scale
+        if len(vectors.shape) == 2:
+            vectors[:, 0] += self.rbfs[0](normalised_v[:, 0]) / scale
+            vectors[:, 1] += self.rbfs[1](normalised_v[:, 1]) / scale
+            vectors[:, 2] += self.rbfs[2](normalised_v[:, 2]) / scale
+        else:
+            vectors[0] += self.rbfs[0](normalised_v[0]) / scale
+            vectors[1] += self.rbfs[1](normalised_v[1]) / scale
+            vectors[2] += self.rbfs[2](normalised_v[2]) / scale
         return vectors
 
     def uniformity(self, data: np.ndarray):
