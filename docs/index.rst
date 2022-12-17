@@ -11,6 +11,11 @@ Table of Contents
     self
 
 .. toctree::
+    :caption: How To Make a compass
+
+    howto
+
+.. toctree::
     :caption: Examples
 
     examples
