@@ -74,7 +74,7 @@ class Sensor:
         self.transform = np.dot(np.dot(v, np.sqrt(np.diag(e))), v.transpose())
         return self.uniformity(data)
 
-    def align_to_vector(self, vector, axis):
+    def _align_to_vector(self, vector, axis):
         """
         Rotate transformation matrix, such that any points along ``vector`` are now on the
         specified ``axis``.
@@ -119,13 +119,13 @@ class Sensor:
             raise ValueError('Axis must be one of "X", "Y", or "Z"')
         axis_index = "XYZ".index(axis)
         for points in data:
-            vector = self.find_plane(points)
+            vector = self._find_plane(points)
             if vector[axis_index] < 0:
                 vector *= -1
             result += vector
-        self.align_to_vector(result, axis)
+        self._align_to_vector(result, axis)
 
-    def find_plane(self, data):
+    def _find_plane(self, data):
         """
         Find a plane that fits the data points given
 

@@ -30,6 +30,7 @@ class TestSensor(TestCase):
                 self.assertLess(0.98, norms.min())
 
     def test_align_along_axis(self):
+        # pylint: disable=protected-access
         non_axis_data = []
         for mag, grav in self.fixtures.values():
             for data in (mag, grav):
@@ -39,10 +40,14 @@ class TestSensor(TestCase):
                 accuracy_after = calib.uniformity(data)
                 # make sure uniformity not significantly impaired by alignment
                 self.assertGreater(accuracy_before + 0.001, accuracy_after)
-                aligned_axis = calib.find_plane(data[8:16])
+                aligned_axis = calib._find_plane(
+                    data[8:16]
+                )  # aligned axis should be [0 1 0]
                 non_axis_data.append(aligned_axis[0])
                 non_axis_data.append(aligned_axis[2])
-                aligned_axis = calib.find_plane(data[16:24])
+                aligned_axis = calib._find_plane(data[16:24])
                 non_axis_data.append(aligned_axis[0])
                 non_axis_data.append(aligned_axis[2])
-        self.assertLess(max(non_axis_data), 0.005)  # equivalent to less than
+        self.assertLess(
+            max(non_axis_data), 0.005
+        )  # equivalent to less than 0.28 degrees error

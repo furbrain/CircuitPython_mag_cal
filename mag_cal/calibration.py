@@ -4,8 +4,6 @@
 """
 Calibration class: main class to use
 """
-import json
-
 from . import nm
 from .rbf import RBF
 from .sensor import Sensor
@@ -81,15 +79,6 @@ class Calibration:
         }
         return dct
 
-    def as_json(self) -> str:
-        """
-        Report current calibration as JSON text
-
-        :return: The calibration in JSON format
-        :rtype: str
-        """
-        return json.dumps(self.as_dict())
-
     @classmethod
     def from_dict(cls, dct: Dict) -> "Calibration":
         """
@@ -103,17 +92,6 @@ class Calibration:
         instance.grav = Sensor.from_dict(dct["grav"])
         instance.ready = dct["ready"]
         return instance
-
-    @classmethod
-    def from_json(cls, text: str) -> "Calibration":
-        """
-        Create a Calibration object based on some JSON text previosuly produced by `as_json`
-
-        :param str text: JSON text to read
-        :return: Calibration object
-        """
-        dct = json.loads(text)
-        return cls.from_dict(dct)
 
     def fit_ellipsoid(
         self, mag_data: np.ndarray, grav_data: np.ndarray
@@ -353,116 +331,6 @@ class Calibration:
         for rot_mat in rot_mats:
             expected_mags.append(np.dot(average_vector, rot_mat).reshape((3,)))
         return expected_mags, np.array(raw_mags)
-
-    def apply_non_linear_correction2(self, data, param_count: int = 3):
-        # pylint: disable=invalid-name,too-many-locals
-        """
-        Compensate for devices which do not have a linear response between the
-        magnetic or gravity field and their output. It is recommended to use a
-        ``param_count`` of either 1, 3 or 5 for this function; odd numbers generally get better
-        results, but there is a significant risk of overfitting if higher numbers are used.
-        See `Underwood, Phil (2021) Non-linear Calibration of a Digital Compass and
-        Accelerometer, Cave Radio Electronics Group Journal 114, pp7-10. June 2021
-        <https://github.com/furbrain/SAP5/blob/master/doc/non-linear_calibration.pdf>`_
-        for more details on the algorithm used.
-
-        This function requires that you have run both `Calibration.fit_ellipsoid` and
-        `Calibration.align_along_axis` beforehand.
-
-        :param data: A list of paired magnetic and gravity readings e.g.:
-          ``[(mag_data1, grav_data1), (mag_data2, grav_data2), ...]``, where ``mag_data1`` and
-          ``grav_data1`` is a (N,3) numpy array of readings around the axis in the first
-          direction, and ``mag_data2`` and ``grav_data2`` is a (M,3) numpy array of readings around
-          the specified axis in another direction.
-        :param int param_count: Number of parameters to use per sensor axis. Larger numbers
-          will take substantially more time to calculate. Default is 3
-        :return: Standard deviation of accuracy of calibration in degrees
-        """
-        self.mag.set_linear()
-        input_width = 2 * param_count + 2 * len(data)
-        input_data = np.zeros((0, input_width))
-        output_data = np.zeros((0,))
-        rbf = RBF(np.zeros(param_count))
-        for i, (mag, grav) in enumerate(data):
-            for m, g in zip(mag, grav):
-                _, _, roll = self.get_angles(m, g)
-                c = np.cos(np.radians(roll))
-                s = np.sin(np.radians(roll))
-                raw_mag = self.mag.apply(m)
-                factors = rbf.get_gaussians(raw_mag).transpose()
-                in_data = np.zeros((2, input_width))
-                in_data[0, :param_count] = factors[0] * c
-                in_data[0, param_count : param_count * 2] = factors[2] * s
-                in_data[0, param_count * 2 + i * 2] = 1
-                in_data[1, :param_count] = factors[0] * -s
-                in_data[1, param_count : param_count * 2] = factors[2] * c
-                in_data[1, param_count * 2 + i * 2 + 1] = 1
-                out_x = raw_mag[0] * c + raw_mag[2] * s
-                out_y = raw_mag[0] * -s + raw_mag[2] * c
-                output_data = np.concatenate((output_data, [-out_x, -out_y]))
-                input_data = np.concatenate((input_data, in_data))
-        # create least squares set of sums
-        params = solve_least_squares(input_data, output_data)
-        all_params = np.zeros(param_count * 3)
-        all_params[:param_count] = params[:param_count]
-        all_params[-param_count:] = params[param_count : param_count * 2]
-        self.mag.set_non_linear_params(all_params)
-        return self.accuracy(data)
-
-    def apply_non_linear_correction_quick_direct(self, data, param_count: int = 3):
-        # pylint: disable=invalid-name,too-many-locals
-        """
-        Compensate for devices which do not have a linear response between the
-        magnetic or gravity field and their output. It is recommended to use a
-        ``param_count`` of either 1, 3 or 5 for this function; odd numbers generally get better
-        results, but there is a significant risk of overfitting if higher numbers are used.
-        See `Underwood, Phil (2021) Non-linear Calibration of a Digital Compass and
-        Accelerometer, Cave Radio Electronics Group Journal 114, pp7-10. June 2021
-        <https://github.com/furbrain/SAP5/blob/master/doc/non-linear_calibration.pdf>`_
-        for more details on the algorithm used.
-
-        This function requires that you have run both `Calibration.fit_ellipsoid` and
-        `Calibration.align_along_axis` beforehand.
-
-        :param data: A list of paired magnetic and gravity readings e.g.:
-          ``[(mag_data1, grav_data1), (mag_data2, grav_data2), ...]``, where ``mag_data1`` and
-          ``grav_data1`` is a (N,3) numpy array of readings around the axis in the first
-          direction, and ``mag_data2`` and ``grav_data2`` is a (M,3) numpy array of readings around
-          the specified axis in another direction.
-        :param int param_count: Number of parameters to use per sensor axis. Larger numbers
-          will take substantially more time to calculate. Default is 3
-        :return: Standard deviation of accuracy of calibration in degrees
-        """
-        self.mag.set_linear()
-        input_width = 2 * param_count + 2 * len(data)
-        input_data = np.zeros((0, input_width))
-        output_data = np.zeros((0,))
-        rbf = RBF(np.zeros(param_count))
-        for i, (mag, grav) in enumerate(data):
-            for m, g in zip(mag, grav):
-                _, _, roll = self.get_angles(m, g)
-                c = np.cos(np.radians(roll))
-                s = np.sin(np.radians(roll))
-                raw_mag = self.mag.apply(m)
-                factors = rbf.get_gaussians(raw_mag).transpose()
-                in_data = np.zeros((2, input_width))
-                in_data[0, :param_count] = factors[0] * c
-                in_data[0, param_count : param_count * 2] = factors[2] * s
-                in_data[0, param_count * 2 + i * 2] = 1
-                in_data[1, :param_count] = factors[0] * -s
-                in_data[1, param_count : param_count * 2] = factors[2] * c
-                in_data[1, param_count * 2 + i * 2 + 1] = 1
-                out_x = raw_mag[0] * c + raw_mag[2] * s
-                out_y = raw_mag[0] * -s + raw_mag[2] * c
-                output_data = np.concatenate((output_data, [-out_x, -out_y]))
-                input_data = np.concatenate((input_data, in_data))
-        # create least squares set of sums
-        params = solve_least_squares(input_data, output_data)
-        all_params = np.zeros(param_count * 3)
-        all_params[:param_count] = params[:param_count]
-        all_params[-param_count:] = params[param_count : param_count * 2]
-        self.mag.set_non_linear_params(all_params)
-        return self.accuracy(data)
 
     def get_orientation_vector(self, mag, grav):
         """
