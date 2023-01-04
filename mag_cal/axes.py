@@ -19,7 +19,7 @@ class Axes:
     def __init__(self, axes):
         """
         :param str axes: A string representing how your sensor is mounted with respect to your
-          device. For each axis XYZ of your device (see `mag_cal` for axis descriptions), state the
+          device. For each axis XYZ of your device (see note regarding Axes above), state the
           corresponding axis of your sensor. Add a ``+`` or ``-`` in front to let us know if it is
           inverted. So for a sensor that is correctly mounted it will be ``"+X+Y+Z"``. If the
           sensors Y axis points to the left of the device, the X is forwards and Z is down, specify

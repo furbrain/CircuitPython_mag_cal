@@ -26,7 +26,7 @@ class Sensor:
 
     def __init__(self, axes="+X+Y+Z"):
         """
-        Create a transform object, with axes set
+        Create a sensor object, with axes set
 
         :param str axes: A string representing how your sensor is mounted with respect to your
           device. For each axis XYZ of your device (see above for axis descriptions), state the
@@ -44,7 +44,7 @@ class Sensor:
         # pylint: disable=too-many-locals, invalid-name
         """
         Take multiple sets of readings in various directions. You can then use this function
-        to determine an ideal set of calibration coefficients
+        to determine an ideal set of calibration coefficients.
 
         :param np.ndarray data: Numpy array of readings of shape (N,3)
         :return: accuracy - How well the calibrated model fits the data; lower numbers are better.
@@ -77,7 +77,7 @@ class Sensor:
     def align_to_vector(self, vector, axis):
         """
         Rotate transformation matrix, such that any points along ``vector`` are now on the
-          specified ``axis``
+        specified ``axis``.
 
         :param np.ndarray vector: numpy array of shape (3) to align with
         :param np.ndarray axis: Axis to align to, must be one of "X", "Y", or "Z".
@@ -104,13 +104,16 @@ class Sensor:
 
     def align_along_axis(self, data, axis="Y"):
         """
-        Calculate the
+        Calibrate for any mechanical placement error.
 
-        :param List[np.ndarray] data: A list of sets of data - numpy array of shape (N,3)
+        :param List[np.ndarray] data: A list of sets of data - numpy array of shape (N,3). Each
+          set should have been taken with the device pointing at a fixed target, but rotated through
+          different angles
         :param str axis: Axis that the device has been rotated around, must be one of "X", "Y",
           or "Z". Default is "Y".
         :return: None
         """
+
         result = np.zeros(3)
         if axis not in "XYZ":
             raise ValueError('Axis must be one of "X", "Y", or "Z"')
@@ -188,7 +191,7 @@ class Sensor:
     def uniformity(self, data: np.ndarray):
         """
         Check the uniformity of the data points after calibration. This is measured as
-          the standard deviation of the absolute magnitude of each measurement
+        the standard deviation of the absolute magnitude of each measurement
 
         :param np.ndarray data: Numpy array of shape (N,3)
         :return: Calculated uniformity as above
@@ -213,12 +216,12 @@ class Sensor:
         return results
 
     @classmethod
-    def from_dict(cls, dct):
+    def from_dict(cls, dct: dict) -> "Sensor":
         """
-        Creata a new `Sensor` instance from the given dict, which should have been created
-          using `Sensor.as_dict`.
+        Create a new `Sensor` instance from the given dict, which should have been created
+        using `as_dict`.
 
-        :param dict dct: Dict of values as created by `Sensor.as_dict`
+        :param dict dct: Dict of values as created by `as_dict`
         :return: New Sensor object, initialised with given data
         """
         instance = cls(dct["axes"])

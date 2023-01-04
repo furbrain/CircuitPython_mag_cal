@@ -93,7 +93,7 @@ class Calibration:
     @classmethod
     def from_dict(cls, dct: Dict) -> "Calibration":
         """
-        Create a Calibration object based on a dict previously produced by _`as_dict`
+        Create a Calibration object based on a dict previously produced by `as_dict`
 
         :param dict dct: dict to instantiate
         :return: Calibration object
@@ -107,7 +107,7 @@ class Calibration:
     @classmethod
     def from_json(cls, text: str) -> "Calibration":
         """
-        Create a Calibration object based on some JSON text previosuly produced by _`as_json`
+        Create a Calibration object based on some JSON text previosuly produced by `as_json`
 
         :param str text: JSON text to read
         :return: Calibration object
@@ -194,7 +194,8 @@ class Calibration:
         See `Underwood, Phil (2021) Non-linear Calibration of a Digital Compass and
         Accelerometer, Cave Radio Electronics Group Journal 114, pp7-10. June 2021
         <https://github.com/furbrain/SAP5/blob/master/doc/non-linear_calibration.pdf>`_
-        for more details on the algorithm used.
+        for more details on the algorithm used. This function uses a Nelder-Mead minimisation
+        process to find optimal values for each non-linear parameter.
 
         This function requires that you have run both `Calibration.fit_ellipsoid` and
         `Calibration.align_along_axis` beforehand.
@@ -208,7 +209,7 @@ class Calibration:
         :param int param_count: Number of parameters to use per sensor axis. Larger numbers
           will take substantially more time to calculate. Default is 3
         :param sensor: Whether to calibrate the magnetometer, accelerometer or both. Must be one
-          of `Calibration.MAGNETOMETER`, `Calibration.ACCELEROMETER`, or `Calibration.BOTH`.
+          of ``Calibration.MAGNETOMETER``, ``Calibration.ACCELEROMETER``, or ``Calibration.BOTH``.
           Default is ``MAGNETOMETER``, as accelerometers are generally quite well-behaved.
         :return: Standard deviation of accuracy of calibration in degrees
         """
@@ -267,7 +268,11 @@ class Calibration:
         See `Underwood, Phil (2021) Non-linear Calibration of a Digital Compass and
         Accelerometer, Cave Radio Electronics Group Journal 114, pp7-10. June 2021
         <https://github.com/furbrain/SAP5/blob/master/doc/non-linear_calibration.pdf>`_
-        for more details on the algorithm used.
+        for more details on the algorithm used. This function uses a least squares method to
+        rapidly find a good set of parameters to use. It is *much* faster than
+        `apply_non_linear_correction`, but gives slightly less good results. Note it will
+        only calibrate the magnetometer and is unable currently to apply a non-linear correction
+        to the accelerometer.
 
         This function requires that you have run both `Calibration.fit_ellipsoid` and
         `Calibration.align_along_axis` beforehand.
@@ -298,6 +303,15 @@ class Calibration:
 
     @staticmethod
     def _get_lstsq_non_linear_params(param_count, expected_mags, raw_mags):
+        """
+        Create a set of non-linear parameters given a set of expected magnetometer readings
+        and the actual magnetometer readings
+
+        :param param_count: Number of parameters to use per sensor
+        :param expected_mags: Expected readings
+        :param raw_mags: Actual readings
+        :return:
+        """
         rbf = RBF(np.zeros(param_count))
         input_data = np.zeros((0, param_count * 2))
         output_data = np.zeros((0,))
@@ -314,6 +328,13 @@ class Calibration:
 
     def _get_raw_and_expected_mag_data(self, grav, mag):
         # pylint: disable=invalid-name,too-many-locals
+        """
+        Rotate a set of mag readings so that the effects of roll has been removed and calculate
+        the average mag vector, then rotate this vector back to where it should be...
+        :param grav:
+        :param mag:
+        :return:
+        """
         rotated_mags = []
         rot_mats = []
         expected_mags = []
