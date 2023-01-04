@@ -28,12 +28,12 @@ class TestCalibration(TestCase):
             self.assertGreater(0.01, mag_accuracy)
             self.assertGreater(0.001, grav_accuracy)
 
-    def test_align_along_axis(self):
+    def test_fit_to_axis(self):
         for mag, grav, aligned_data in self.fixtures.values():
             calib = Calibration()
             calib.fit_ellipsoid(mag, grav)
             before = calib.accuracy(aligned_data)
-            calib.align_along_axis(aligned_data, axis="Y")
+            calib.fit_to_axis(aligned_data, axis="Y")
             after = calib.accuracy(aligned_data)
             print(before, after)
             # we should expect accuracy to at least double after alignment
@@ -46,8 +46,8 @@ class TestCalibration(TestCase):
             calib = Calibration()
             calib.fit_ellipsoid(mag, grav)
             calib.accuracy(aligned_data)
-            before = calib.align_along_axis(aligned_data, axis="Y")
-            _, after = calib.apply_non_linear_correction(
+            before = calib.fit_to_axis(aligned_data, axis="Y")
+            _, after = calib.fit_non_linear(
                 aligned_data, sensor=Calibration.MAGNETOMETER, param_count=3
             )
             non_linears.append(after)
@@ -67,8 +67,8 @@ class TestCalibration(TestCase):
             calib = Calibration()
             calib.fit_ellipsoid(mag, grav)
             calib.accuracy(aligned_data)
-            before = calib.align_along_axis(aligned_data, axis="Y")
-            after = calib.apply_non_linear_correction_quick(aligned_data, param_count=5)
+            before = calib.fit_to_axis(aligned_data, axis="Y")
+            after = calib.fit_non_linear_quick(aligned_data, param_count=5)
             non_linears.append(after)
             ratios.append(after / before)
             print(before, after)
@@ -108,7 +108,7 @@ class TestCalibration(TestCase):
         calib = Calibration()
         calib.fit_ellipsoid(mag, grav)
         calib.accuracy(aligned_data)
-        calib.align_along_axis(aligned_data, axis="Y")
+        calib.fit_to_axis(aligned_data, axis="Y")
         xs = np.linspace(-0.1, 0.1, 30)
         X, Y = np.meshgrid(xs, xs)
         _, axs = plt.subplots(5, 5)
@@ -137,16 +137,12 @@ class TestCalibration(TestCase):
         for i, (mag, grav, aligned_data) in enumerate(self.fixtures.values()):
             calib = Calibration()
             calib.fit_ellipsoid(mag, grav)
-            linear = calib.align_along_axis(aligned_data, axis="Y")
+            linear = calib.fit_to_axis(aligned_data, axis="Y")
             xs = np.linspace(-1, 1, 40)
-            _, min_acc = calib.apply_non_linear_correction(
-                aligned_data, param_count=params
-            )
+            _, min_acc = calib.fit_non_linear(aligned_data, param_count=params)
             y1 = calib.mag.rbfs[0](xs)
             y2 = calib.mag.rbfs[2](xs)
-            q1_acc = calib.apply_non_linear_correction_quick(
-                aligned_data, param_count=params
-            )
+            q1_acc = calib.fit_non_linear_quick(aligned_data, param_count=params)
             yq1 = calib.mag.rbfs[0](xs)
             yq2 = calib.mag.rbfs[2](xs)
             yq3 = calib.mag.rbfs[1](xs)

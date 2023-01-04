@@ -134,7 +134,7 @@ class Calibration:
         """
         return self.mag.uniformity(mag_data), self.grav.uniformity(grav_data)
 
-    def align_along_axis(self, data, axis="Y") -> float:
+    def fit_to_axis(self, data, axis="Y") -> float:
         """
         Take multiple reading with the device pointing in the same direction, but rotated around
         ``axis``. You can repeat this with several directions. This function will take
@@ -155,7 +155,7 @@ class Calibration:
         self.grav.align_along_axis(grav_data, axis)
         return self.accuracy(data)
 
-    def apply_non_linear_correction(
+    def fit_non_linear(
         self, data, axis: str = "Y", param_count: int = 3, sensor: int = MAGNETOMETER
     ):
         """
@@ -170,7 +170,7 @@ class Calibration:
         process to find optimal values for each non-linear parameter.
 
         This function requires that you have run both `Calibration.fit_ellipsoid` and
-        `Calibration.align_along_axis` beforehand.
+        `Calibration.fit_to_axis` beforehand.
 
         :param data: A list of paired magnetic and gravity readings e.g.:
           ``[(mag_data1, grav_data1), (mag_data2, grav_data2), ...]``, where ``mag_data1`` and
@@ -230,7 +230,7 @@ class Calibration:
         min_func(results["x"])
         return results["iterations"], self.accuracy(data)
 
-    def apply_non_linear_correction_quick(self, data, param_count: int = 3):
+    def fit_non_linear_quick(self, data, param_count: int = 3):
         # pylint: disable=invalid-name,too-many-locals
         """
         Compensate for devices which do not have a linear response between the
@@ -247,7 +247,7 @@ class Calibration:
         to the accelerometer. It will also only calibrate for rotations around the Y axis.
 
         This function requires that you have run both `Calibration.fit_ellipsoid` and
-        `Calibration.align_along_axis` beforehand.
+        `Calibration.fit_to_axis` beforehand.
 
         :param data: A list of paired magnetic and gravity readings e.g.:
           ``[(mag_data1, grav_data1), (mag_data2, grav_data2), ...]``, where ``mag_data1`` and
