@@ -242,7 +242,7 @@ class Calibration:
         <https://github.com/furbrain/SAP5/blob/master/doc/non-linear_calibration.pdf>`_
         for more details on the algorithm used. This function uses a least squares method to
         rapidly find a good set of parameters to use. It is *much* faster than
-        `apply_non_linear_correction`, but gives slightly less good results. Note it will
+        `fit_non_linear`, but gives slightly less good results. Note it will
         only calibrate the magnetometer and is unable currently to apply a non-linear correction
         to the accelerometer. It will also only calibrate for rotations around the Y axis.
 

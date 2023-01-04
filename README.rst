@@ -1,9 +1,6 @@
 Introduction
 ============
 
-
-
-
 .. image:: https://img.shields.io/discord/327254708534116352.svg
     :target: https://adafru.it/discord
     :alt: Discord
@@ -18,7 +15,9 @@ Introduction
     :target: https://github.com/psf/black
     :alt: Code Style: Black
 
-Calibrate magnetometer and accelerometer readings
+This library allows you to calibrate magnetometers when used with a 3 axis accelerometer.
+It is designed for use with circuitpython and `ulab <https://github.com/v923z/micropython-ulab>`_,
+but can be used in any python environment where `numpy <https://numpy.org/>`_ is present.
 
 
 Dependencies
@@ -26,12 +25,7 @@ Dependencies
 This driver depends on:
 
 * `Adafruit CircuitPython <https://github.com/adafruit/circuitpython>`_
-
-Please ensure all dependencies are available on the CircuitPython filesystem.
-This is easily achieved by downloading
-`the Adafruit library and driver bundle <https://circuitpython.org/libraries>`_
-or individual libraries can be installed using
-`circup <https://github.com/adafruit/circup>`_.
+* `Numpy <https://numpy.org/>`_ *or* `ulab <https://github.com/v923z/micropython-ulab>`_
 
 Installing from PyPI
 =====================
@@ -84,7 +78,25 @@ Or the following command to update an existing version:
 
 Usage Example
 =============
+.. code-block:: python
 
+    from mag_cal.calibration import Calibration
+    from mag_cal.utils import read_fixture
+
+    PATH = "../tests/fixtures/cal_data/hj2.json"
+
+    with open(PATH) as f:
+        aligned, grav, mag = read_fixture(f.read())
+
+    calib = Calibration()
+    calib.fit_ellipsoid(mag, grav)
+    calib.fit_to_axis(aligned)
+    calib.fit_non_linear_quick(aligned, param_count=5)
+
+    #calib.fit_non_linear(aligned, param_count=3)
+    for m, g in zip(mag,grav):
+        azimuth, inclination, roll = calib.get_angles(m, g)
+        print(f"{azimuth:05.1f}° {inclination:+05.1f}° {roll:+04.0f}°")
 
 Documentation
 =============

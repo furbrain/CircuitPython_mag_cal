@@ -1,24 +1,20 @@
-# SPDX-FileCopyrightText: 2017 Scott Shawcroft, written for Adafruit Industries
 # SPDX-FileCopyrightText: Copyright (c) 2022 Phil Underwood for Underwood Underground
 #
 # SPDX-License-Identifier: Unlicense
-import time
-
 from mag_cal.calibration import Calibration
 from mag_cal.utils import read_fixture
 
-PATH = "../tests/fixtures/cal_data/hj.json"
+PATH = "../tests/fixtures/cal_data/hj2.json"
 
 with open(PATH) as f:
-    aligned, mag, grav = read_fixture(f.read())
+    aligned, grav, mag = read_fixture(f.read())
+
 calib = Calibration()
-start = time.time()
-print(f"Starting at:\t{time.time()-start}")
 calib.fit_ellipsoid(mag, grav)
-print(f"Ellipsoid at:\t{time.time()-start}")
-calib.align_along_axis(aligned)
-print(f"Aligned at:\t{time.time()-start}")
-calib.apply_non_linear_correction_quick(aligned, param_count=5)
-print(f"Quick NL at:\t{time.time()-start}")
-calib.apply_non_linear_correction(aligned, param_count=5)
-print(f"Slow NL at:\t{time.time()-start}")
+calib.fit_to_axis(aligned)
+calib.fit_non_linear_quick(aligned, param_count=5)
+
+# calib.fit_non_linear(aligned, param_count=3)
+for m, g in zip(mag, grav):
+    azimuth, inclination, roll = calib.get_angles(m, g)
+    print(f"{azimuth:05.1f}° {inclination:+05.1f}° {roll:+04.0f}°")
