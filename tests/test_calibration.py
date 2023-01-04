@@ -149,17 +149,12 @@ class TestCalibration(TestCase):
             )
             yq1 = calib.mag.rbfs[0](xs)
             yq2 = calib.mag.rbfs[2](xs)
-            q2_acc = calib.apply_non_linear_correction_quick_direct(
-                aligned_data, param_count=params
-            )
-            yq21 = calib.mag.rbfs[0](xs)
-            yq22 = calib.mag.rbfs[2](xs)
+            yq3 = calib.mag.rbfs[1](xs)
             ax = axs[i // 3, i % 3]
             ax.plot(xs, y1, "r-", label=f"minimizer({min_acc:.4f})")
             ax.plot(xs, y2, "b-", label=f"(linear({linear:.4f})")
             ax.plot(xs, yq1, "r:", label=f"quick_1({q1_acc:.4f})")
             ax.plot(xs, yq2, "b:")
-            ax.plot(xs, yq21, "r--", label=f"quick_2({q2_acc:.4f})")
-            ax.plot(xs, yq22, "b--")
+            ax.plot(xs, yq3, "g:")
             ax.legend()
         plt.show()

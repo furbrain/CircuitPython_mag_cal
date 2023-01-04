@@ -18,15 +18,9 @@ except ImportError:
 try:
     # work with normal numpy
     import numpy as np
-
-    # import scipy as spy
-
 except ImportError:
-    # or work with ulab
+    # or work with ulab if we are in CircuitPython
     from ulab import numpy as np
-
-    # from ulab import scipy as spy
-
 
 __version__ = "0.0.0+auto.0"
 __repo__ = "https://github.com/furbrain/CircuitPython_mag_cal.git"
@@ -67,7 +61,7 @@ class Calibration:
 
     def as_dict(self) -> Dict:
         """
-        Convert the current calibration to a dictionary
+        Convert the current calibration to a dictionary, suitable for serialising via json.
 
         :return: The calibration as a dictionary
         :rtype: dict
@@ -143,7 +137,7 @@ class Calibration:
     def align_along_axis(self, data, axis="Y") -> float:
         """
         Take multiple reading with the device pointing in the same direction, but rotated around
-        ``axis``. You can repeat this with several different directions. This function will take
+        ``axis``. You can repeat this with several directions. This function will take
         this data and ensure that your sensors aligned relative to each other. This function
         requires that you have run `Calibration.fit_ellipsoid` beforehand.
 
@@ -250,7 +244,7 @@ class Calibration:
         rapidly find a good set of parameters to use. It is *much* faster than
         `apply_non_linear_correction`, but gives slightly less good results. Note it will
         only calibrate the magnetometer and is unable currently to apply a non-linear correction
-        to the accelerometer.
+        to the accelerometer. It will also only calibrate for rotations around the Y axis.
 
         This function requires that you have run both `Calibration.fit_ellipsoid` and
         `Calibration.align_along_axis` beforehand.
