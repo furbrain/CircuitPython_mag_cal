@@ -34,6 +34,8 @@ autoclass_content = "both"
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
+autodoc_mock_imports = ["ulab"]
+
 source_suffix = ".rst"
 
 # The master toctree document.
