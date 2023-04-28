@@ -39,6 +39,15 @@ class Calibration:
     ACCELEROMETER = 2
     BOTH = MAGNETOMETER | ACCELEROMETER
 
+    ELLIPSOID = 0  #: Fit to Ellipsoid
+    AXIS_CORRECTION = 1  #: Fit to ellipsoid then correct any axis misalignment
+    NON_LINEAR = (
+        2  #: as per `AXIS_CORRECTION` and then do correction for non-linear effects
+    )
+    FAST_NON_LINEAR = (
+        3  #: as per `AXIS_CORRECTION` and then do quick non-linear correction
+    )
+
     def __init__(self, mag_axes: str = "+X+Y+Z", grav_axes: str = None):
         """
         Create an object representing the calibration coefficients for a combined
@@ -86,6 +95,51 @@ class Calibration:
         instance.grav = Sensor.from_dict(dct["grav"])
         instance.ready = dct["ready"]
         return instance
+
+    def calibrate(
+        self,
+        mag_data: np.ndarray,
+        grav_data: np.ndarray,
+        routine: int = FAST_NON_LINEAR,
+    ):
+        """
+        Perform a full calibration, with an algorithm depending on the value of ``routine``. If
+        you select a routine other than `ELLIPSOID` you must provide at least one run
+        of at least four shots in the same direction with varying amonts of roll. Ideally two sets
+        of eight readings, but this is not vital.
+        :param np.ndarray mag_data: Numpy array of magnetic readings of shape (N,3)
+        :param np.ndarray grav_data: Numpy array of gravity readings of shape (M,3)
+        :param routine: what level of calibration to perform:
+
+          * `ELLIPSOID`: Simplest form of calibration, very fast, does not require any sets of
+            readings to be aligned. Does not correct for misalignment between pointer and sensors.
+          * `AXIS_CORRECTION`: This routine performs the `ELLIPSOID` and then applies a
+            rotation to offset any misalignment between the pointer and sensors (and also
+            misalignment between accelrometer and magnetometer if relevant). This process will
+            automatically identify which shots have been taken in the same direction
+          * `NON_LINEAR`: Performs calibration as per `AXIS_CORRECTION`, then uses an
+            optimisation process to account for non-linear sensor response. See `fit_non_linear`
+            for details.
+          * `FAST_NON_LINEAR`: Performs calibration as per `AXIS_CORRECTION`, then uses a
+            least-squares process to account for non-linear sensor response. A lot faster than
+            `NON_LINEAR`, but slightly less accurate. See `fit_non_linear_quick` for details
+
+        :return: Measure of error: percentage error of fit for `ELLIPSOID`,
+          standard deviation of error in degrees for other methods. Normally <1 degree is
+          acceptable, <0.5 degrees is good.
+        """
+        self.fit_ellipsoid(mag_data, grav_data)
+        if routine >= self.AXIS_CORRECTION:
+            runs = self.find_similar_shots(mag_data, grav_data)
+            paired_data = [(mag_data[a:b], grav_data[a:b]) for a, b in runs]
+            self.fit_to_axis(paired_data)
+            if routine == self.NON_LINEAR:
+                self.fit_non_linear(paired_data)
+            elif routine == self.FAST_NON_LINEAR:
+                self.fit_non_linear_quick(paired_data)
+            return self.accuracy(paired_data)
+        # just ellipsod fit done, so use uniformity measure
+        return np.mean(self.uniformity(mag_data, grav_data))
 
     def fit_ellipsoid(
         self, mag_data: np.ndarray, grav_data: np.ndarray
@@ -439,3 +493,46 @@ class Calibration:
             )
             return matrix
         return [cls.angles_to_matrix(*args) for args in zip(azimuth, inclination, roll)]
+
+    def find_similar_shots(
+        self, mag: np.ndarray, grav: np.ndarray, precision=30, min_run=4
+    ):
+        """
+        Find runs of shots that are within precision degrees of each other
+        :param mag: numpy array of magnetic data
+        :param grav: numpy array of accelerometer data
+        :param precision: number of degrees shots should be within
+        :param min_run: minimum length of run to find
+        :return: list of start and finish indices for each run
+        """
+        azimuths, inclinations, _ = self.get_angles(mag, grav)
+        groups = []
+        i = 0
+        while i < len(azimuths) - min_run:
+            for j in reversed(range(i + min_run, len(azimuths) + 1)):
+                if self._is_a_run(azimuths[i:j], inclinations[i:j], precision):
+                    groups.append([i, j])
+                    i = j
+                    break
+            else:
+                i += 1
+        return groups
+
+    @staticmethod
+    def _is_a_run(azimuths: np.ndarray, inclinations: np.ndarray, precision: float):
+        """
+        Given a list of azimuths and inclinations, return true if they are all near each other
+        :param azimuths: list of azimuths
+        :param inclinations: list of inclinations
+        :param precision: maximum allowed degrees of difference
+        :return:
+        """
+        if max(inclinations) - min(inclinations) > precision:
+            return False
+        if max(azimuths) > 360 - precision:
+            azimuths = (
+                azimuths + 180
+            ) % 360  # rotate by 180 degs if shots near 359/0 degs
+        if max(azimuths) - min(azimuths) > precision:
+            return False
+        return True

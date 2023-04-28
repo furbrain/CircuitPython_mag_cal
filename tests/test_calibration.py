@@ -99,6 +99,20 @@ class TestCalibration(TestCase):
         np.testing.assert_array_almost_equal(inclinations, new_inc)
         np.testing.assert_array_almost_equal(rolls, new_roll)
 
+    def test_find_runs(self):
+        for mag, grav, _ in self.fixtures.values():
+            calib = Calibration()
+            calib.fit_ellipsoid(mag, grav)
+            self.assertListEqual(
+                [[8, 16], [16, 24]], calib.find_similar_shots(mag, grav)
+            )
+
+    def test_integration_calibrate(self):
+        for mag, grav, _ in self.fixtures.values():
+            calib = Calibration()
+            accuracy = calib.calibrate(mag, grav)
+            self.assertGreater(0.5, accuracy)
+
     @unittest.skip
     def test_display_non_linear_maps(self):
         # pylint: disable=invalid-name,import-outside-toplevel,cell-var-from-loop
