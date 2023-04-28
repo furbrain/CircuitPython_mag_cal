@@ -39,14 +39,14 @@ class Calibration:
     ACCELEROMETER = 2
     BOTH = MAGNETOMETER | ACCELEROMETER
 
-    ELLIPSOID = 0  #: Fit to Ellipsoid
-    AXIS_CORRECTION = 1  #: Fit to ellipsoid then correct any axis misalignment
-    NON_LINEAR = (
-        2  #: as per `AXIS_CORRECTION` and then do correction for non-linear effects
-    )
-    FAST_NON_LINEAR = (
-        3  #: as per `AXIS_CORRECTION` and then do quick non-linear correction
-    )
+    ELLIPSOID = 0
+    """Fit to Ellipsoid"""
+    AXIS_CORRECTION = 1
+    """Fit to ellipsoid then correct any axis misalignment"""
+    NON_LINEAR = 2
+    """as per `AXIS_CORRECTION` and then do correction for non-linear effects"""
+    FAST_NON_LINEAR = 3
+    """as per `AXIS_CORRECTION` and then do quick non-linear correction"""
 
     def __init__(self, mag_axes: str = "+X+Y+Z", grav_axes: str = None):
         """
