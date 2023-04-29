@@ -104,6 +104,8 @@ class Calibration:
         self.fit_ellipsoid(mag_data, grav_data)
         if routine >= self.AXIS_CORRECTION:
             runs = self.find_similar_shots(mag_data, grav_data)
+            if len(runs) == 0:
+                raise ValueError("No runs of shots all in the same direction found")
             paired_data = [(mag_data[a:b], grav_data[a:b]) for a, b in runs]
             self.fit_to_axis(paired_data)
             if routine == self.NON_LINEAR:
