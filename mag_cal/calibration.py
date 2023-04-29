@@ -507,7 +507,8 @@ class Calibration:
         :param min_run: minimum length of run to find
         :return: list of start and finish indices for each run
         """
-        azimuths, inclinations, _ = self.get_angles(mag, grav)
+        angles = [self.get_angles(m, g) for m, g in zip(mag, grav)]
+        azimuths, inclinations, _ = zip(*angles)
         groups = []
         i = 0
         while i < len(azimuths) - min_run:
