@@ -35,6 +35,7 @@ autoclass_content = "both"
 templates_path = ["_templates"]
 
 autodoc_mock_imports = ["ulab"]
+autodoc_member_order = "bysource"
 
 source_suffix = ".rst"
 

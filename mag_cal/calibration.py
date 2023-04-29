@@ -68,34 +68,6 @@ class Calibration:
         self.grav = Sensor(axes=grav_axes)
         self.ready = False
 
-    def as_dict(self) -> Dict:
-        """
-        Convert the current calibration to a dictionary, suitable for serialising via json.
-
-        :return: The calibration as a dictionary
-        :rtype: dict
-        """
-        dct = {
-            "mag": self.mag.as_dict(),
-            "grav": self.grav.as_dict(),
-            "ready": self.ready,
-        }
-        return dct
-
-    @classmethod
-    def from_dict(cls, dct: Dict) -> "Calibration":
-        """
-        Create a Calibration object based on a dict previously produced by `as_dict`
-
-        :param dict dct: dict to instantiate
-        :return: Calibration object
-        """
-        instance = cls()
-        instance.mag = Sensor.from_dict(dct["mag"])
-        instance.grav = Sensor.from_dict(dct["grav"])
-        instance.ready = dct["ready"]
-        return instance
-
     def calibrate(
         self,
         mag_data: np.ndarray,
@@ -107,6 +79,7 @@ class Calibration:
         you select a routine other than `ELLIPSOID` you must provide at least one run
         of at least four shots in the same direction with varying amonts of roll. Ideally two sets
         of eight readings, but this is not vital.
+
         :param np.ndarray mag_data: Numpy array of magnetic readings of shape (N,3)
         :param np.ndarray grav_data: Numpy array of gravity readings of shape (M,3)
         :param routine: what level of calibration to perform:
@@ -141,6 +114,47 @@ class Calibration:
         # just ellipsod fit done, so use uniformity measure
         return np.mean(self.uniformity(mag_data, grav_data))
 
+    def get_angles(self, mag, grav) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Get device azimuth(bearing), inclination, and roll, given the magnetic and gravity readings
+
+        :param np.ndarray mag: Magnetic readings, either as numpy array or sequence of 3 floats
+        :param np.ndarray grav: Gravity readings, either as numpy array or sequence of 3 floats
+        :return: (azimuth, inclination, roll) in degrees
+        """
+
+        matrix = self.get_orientation_matrix(mag, grav)
+        azimuth, inclination, roll = self.matrix_to_angles(matrix)
+        return azimuth, inclination, roll
+
+    def as_dict(self) -> Dict:
+        """
+        Convert the current calibration to a dictionary, suitable for serialising via json.
+
+        :return: The calibration as a dictionary
+        :rtype: dict
+        """
+        dct = {
+            "mag": self.mag.as_dict(),
+            "grav": self.grav.as_dict(),
+            "ready": self.ready,
+        }
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct: Dict) -> "Calibration":
+        """
+        Create a Calibration object based on a dict previously produced by `as_dict`
+
+        :param dict dct: dict to instantiate
+        :return: Calibration object
+        """
+        instance = cls()
+        instance.mag = Sensor.from_dict(dct["mag"])
+        instance.grav = Sensor.from_dict(dct["grav"])
+        instance.ready = dct["ready"]
+        return instance
+
     def fit_ellipsoid(
         self, mag_data: np.ndarray, grav_data: np.ndarray
     ) -> Tuple[float, float]:
@@ -157,36 +171,6 @@ class Calibration:
         grav_accuracy = self.grav.fit_ellipsoid(grav_data)
         self.ready = True
         return mag_accuracy, grav_accuracy
-
-    def accuracy(self, data) -> float:
-        """
-        Calculate average accuracy for a set of multiple readings taken
-
-        :param data: A list of paired magnetic and gravity readings e.g.:
-          ``[(mag_data1, grav_data1), (mag_data2, grav_data2)]``, where ``mag_data1`` and
-          ``grav_data1`` is a (N,3) numpy array of readings around the axis in the first
-          direction, and ``mag_data2`` and ``grav_data2`` is a (M,3) numpy array of readings around
-          the specified axis in another direction.
-        :return: Average standard deviation of readings in degrees
-        """
-        results = 0
-        for mag, grav in data:
-            orientation = self.get_orientation_vector(mag, grav)
-            stds = np.std(orientation, axis=0, ddof=1)
-            results += np.linalg.norm(stds)
-        return np.degrees(results / len(data))
-
-    def uniformity(self, mag_data, grav_data):
-        """
-        Check the uniformity of the data - how well the calibrated data points fit on
-        a sphere of radius 1.0
-
-        :param np.ndarray mag_data: Numpy array of magnetic readings of shape (N,3)
-        :param np.ndarray grav_data: Numpy array of gravity readings of shape (M,3)
-        :return: (mag_accuracy, grav_accuracy) How well the calibrated model fits the data.
-          Lower numbers are better
-        """
-        return self.mag.uniformity(mag_data), self.grav.uniformity(grav_data)
 
     def fit_to_axis(self, data, axis="Y") -> float:
         """
@@ -327,6 +311,36 @@ class Calibration:
         self.mag.set_non_linear_params(all_params)
         return self.accuracy(data)
 
+    def accuracy(self, data) -> float:
+        """
+        Calculate average accuracy for a set of multiple readings taken
+
+        :param data: A list of paired magnetic and gravity readings e.g.:
+          ``[(mag_data1, grav_data1), (mag_data2, grav_data2)]``, where ``mag_data1`` and
+          ``grav_data1`` is a (N,3) numpy array of readings around the axis in the first
+          direction, and ``mag_data2`` and ``grav_data2`` is a (M,3) numpy array of readings around
+          the specified axis in another direction.
+        :return: Average standard deviation of readings in degrees
+        """
+        results = 0
+        for mag, grav in data:
+            orientation = self.get_orientation_vector(mag, grav)
+            stds = np.std(orientation, axis=0, ddof=1)
+            results += np.linalg.norm(stds)
+        return np.degrees(results / len(data))
+
+    def uniformity(self, mag_data, grav_data):
+        """
+        Check the uniformity of the data - how well the calibrated data points fit on
+        a sphere of radius 1.0
+
+        :param np.ndarray mag_data: Numpy array of magnetic readings of shape (N,3)
+        :param np.ndarray grav_data: Numpy array of gravity readings of shape (M,3)
+        :return: (mag_accuracy, grav_accuracy) How well the calibrated model fits the data.
+          Lower numbers are better
+        """
+        return self.mag.uniformity(mag_data), self.grav.uniformity(grav_data)
+
     @staticmethod
     def _get_lstsq_non_linear_params(param_count, expected_mags, raw_mags):
         """
@@ -416,19 +430,6 @@ class Calibration:
             orientation = np.array((east, north, upward))
         return orientation
 
-    def get_angles(self, mag, grav) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Get device azimuth(bearing) and inclination, given the magnetic and gravity readings
-
-        :param np.ndarray mag: Magnetic readings, either as numpy array or sequence of 3 floats
-        :param np.ndarray grav: Gravity readings, either as numpy array or sequence of 3 floats
-        :return: (azimuth, inclination, roll) in degrees
-        """
-
-        matrix = self.get_orientation_matrix(mag, grav)
-        azimuth, inclination, roll = self.matrix_to_angles(matrix)
-        return azimuth, inclination, roll
-
     @staticmethod
     def matrix_to_angles(matrix: np.ndarray):
         """
@@ -499,6 +500,7 @@ class Calibration:
     ):
         """
         Find runs of shots that are within precision degrees of each other
+
         :param mag: numpy array of magnetic data
         :param grav: numpy array of accelerometer data
         :param precision: number of degrees shots should be within
