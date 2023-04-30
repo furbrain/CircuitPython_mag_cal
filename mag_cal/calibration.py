@@ -455,7 +455,7 @@ class Calibration:
         theta1 = np.arctan2(m01, m11)
         theta2 = np.arctan2(m21 * np.cos(theta1), m11)
         theta3 = np.arctan2(-m20, m22)
-        if isinstance(theta1, np.float64):
+        if not isinstance(theta1, np.ndarray):
             azimuth = float(np.degrees(theta1)) % 360
         else:
             azimuth = np.array([x % 360 for x in np.degrees(theta1)])
