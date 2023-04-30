@@ -455,7 +455,10 @@ class Calibration:
         theta1 = np.arctan2(m01, m11)
         theta2 = np.arctan2(m21 * np.cos(theta1), m11)
         theta3 = np.arctan2(-m20, m22)
-        azimuth = np.degrees(theta1) % 360
+        if isinstance(theta1, np.float64):
+            azimuth = float(np.degrees(theta1)) % 360
+        else:
+            azimuth = np.array([x % 360 for x in np.degrees(theta1)])
         inclination = (
             (np.degrees(theta2) + 90) % 180
         ) - 90  # force to be in range -90,+90
