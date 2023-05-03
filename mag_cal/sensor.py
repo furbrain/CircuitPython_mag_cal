@@ -183,9 +183,9 @@ class Sensor:
             vectors[:, 1] += self.rbfs[1](normalised_v[:, 1]) / scale
             vectors[:, 2] += self.rbfs[2](normalised_v[:, 2]) / scale
         else:
-            vectors[0] += self.rbfs[0](normalised_v[0]) / scale
-            vectors[1] += self.rbfs[1](normalised_v[1]) / scale
-            vectors[2] += self.rbfs[2](normalised_v[2]) / scale
+            vectors[0] += self.rbfs[0](normalised_v[0])[0] / scale
+            vectors[1] += self.rbfs[1](normalised_v[1])[0] / scale
+            vectors[2] += self.rbfs[2](normalised_v[2])[0] / scale
         return vectors
 
     def uniformity(self, data: np.ndarray):
