@@ -541,9 +541,8 @@ class Calibration:
         if max(inclinations) - min(inclinations) > precision:
             return False
         if max(azimuths) > 360 - precision:
-            azimuths = (
-                azimuths + 180
-            ) % 360  # rotate by 180 degs if shots near 359/0 degs
+            # rotate by 180 degs if shots near 359/0 degs
+            azimuths = [(azimuth + 180) % 360 for azimuth in azimuths]
         if max(azimuths) - min(azimuths) > precision:
             return False
         return True
