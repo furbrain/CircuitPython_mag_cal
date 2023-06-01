@@ -514,6 +514,9 @@ class Calibration:
         """
         angles = [self.get_angles(m, g) for m, g in zip(mag, grav)]
         azimuths, inclinations, _ = zip(*angles)
+        azimuths = np.array(
+            azimuths
+        )  # convert to numpy array so we can do addition and modulo
         groups = []
         i = 0
         while i < len(azimuths) - min_run:

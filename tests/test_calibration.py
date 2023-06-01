@@ -5,6 +5,7 @@ import itertools
 import unittest
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 import numpy as np
 
@@ -106,6 +107,22 @@ class TestCalibration(TestCase):
             self.assertListEqual(
                 [[8, 16], [16, 24]], calib.find_similar_shots(mag, grav)
             )
+
+    def test_find_runs_near_360_azimuth(self):
+        results = [
+            (20, 0, 0),
+            (60, 0, 0),
+            (358, 0, 0),
+            (359, 0, 0),
+            (0, 0, 0),
+            (1, 0, 0),
+            (2, 0, 0),
+        ]
+        mags = [[0, 0, 0]] * 7
+        gravs = mags
+        with patch("mag_cal.calibration.Calibration.get_angles", side_effect=results):
+            calib = Calibration()
+            self.assertListEqual([[2, 7]], calib.find_similar_shots(mags, gravs))
 
     def test_integration_calibrate(self):
         for mag, grav, _ in self.fixtures.values():
