@@ -134,6 +134,7 @@ class TestCalibration(TestCase):
         # pylint: disable=invalid-name
         for mag, grav, _ in self.fixtures.values():
             calib = Calibration()
+            calib.calibrate(mag, grav)
             for m, g in zip(mag, grav):
                 calib.raise_if_anomaly(m, g)
 
@@ -141,6 +142,7 @@ class TestCalibration(TestCase):
         # pylint: disable=invalid-name
         for mag, grav, _ in self.fixtures.values():
             calib = Calibration()
+            calib.calibrate(mag, grav)
             with self.assertRaises(CalibrationError):
                 for m, g in zip(mag, grav):
                     calib.raise_if_anomaly(m, g, sigma=1)
