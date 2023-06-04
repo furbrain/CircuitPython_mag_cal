@@ -88,7 +88,7 @@ class Calibration:
             readings to be aligned. Does not correct for misalignment between pointer and sensors.
           * `AXIS_CORRECTION`: This routine performs the `ELLIPSOID` and then applies a
             rotation to offset any misalignment between the pointer and sensors (and also
-            misalignment between accelrometer and magnetometer if relevant). This process will
+            misalignment between accelerometer and magnetometer if relevant). This process will
             automatically identify which shots have been taken in the same direction
           * `NON_LINEAR`: Performs calibration as per `AXIS_CORRECTION`, then uses an
             optimisation process to account for non-linear sensor response. See `fit_non_linear`

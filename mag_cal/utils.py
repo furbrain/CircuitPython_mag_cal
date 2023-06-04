@@ -75,6 +75,23 @@ def read_fixture(fixture: str):
     return aligned_data, grav, mag
 
 
+def _cross(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    # pylint: disable=invalid-name
+    """
+    implement cross product ourselves as ulabs implementation is broken
+    :param a:
+    :param b:
+    :return:
+    """
+    return np.array(
+        [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ]
+    )
+
+
 def cross(a: np.ndarray, b: np.ndarray):
     # pylint: disable=invalid-name
     """
@@ -86,9 +103,9 @@ def cross(a: np.ndarray, b: np.ndarray):
     len_a = len(a.shape)
     len_b = len(b.shape)
     if len_a == 1 and len_b == 1:
-        return np.cross(a, b)
+        return _cross(a, b)
     if len_a == 1:
-        return np.array([np.cross(a, x) for x in b])
+        return np.array([_cross(a, x) for x in b])
     if len_b == 1:
-        return np.array([np.cross(x, b) for x in a])
-    return np.array([np.cross(x, y) for x, y in zip(a, b)])
+        return np.array([_cross(x, b) for x in a])
+    return np.array([_cross(x, y) for x, y in zip(a, b)])
