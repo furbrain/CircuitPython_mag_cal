@@ -18,9 +18,13 @@ except ImportError:
 try:
     # work with normal numpy
     import numpy as np
+
+    arccos = np.arccos
 except ImportError:
     # or work with ulab if we are in CircuitPython
     from ulab import numpy as np
+
+    arccos = np.acos
 
 __version__ = "0.0.0+auto.0"
 __repo__ = "https://github.com/furbrain/CircuitPython_mag_cal.git"
@@ -92,7 +96,6 @@ class Calibration:
         self.grav = Sensor(axes=grav_axes)
         self.dip_avg: float = None
         self.dip_std: float = None
-        self.ready = False
 
     def calibrate(
         self,
@@ -167,7 +170,8 @@ class Calibration:
         dct = {
             "mag": self.mag.as_dict(),
             "grav": self.grav.as_dict(),
-            "ready": self.ready,
+            "dip_std": self.dip_std,
+            "dip_avg": self.dip_avg,
         }
         return dct
 
@@ -182,7 +186,8 @@ class Calibration:
         instance = cls()
         instance.mag = Sensor.from_dict(dct["mag"])
         instance.grav = Sensor.from_dict(dct["grav"])
-        instance.ready = dct["ready"]
+        instance.dip_std = dct["dip_std"]
+        instance.dip_avg = dct["dip_avg"]
         return instance
 
     def fit_ellipsoid(
@@ -199,7 +204,6 @@ class Calibration:
         """
         mag_accuracy = self.mag.fit_ellipsoid(mag_data)
         grav_accuracy = self.grav.fit_ellipsoid(grav_data)
-        self.ready = True
         return mag_accuracy, grav_accuracy
 
     def fit_to_axis(self, data, axis="Y") -> float:
@@ -608,7 +612,7 @@ class Calibration:
             dot_products = np.array(dot_products)
         else:
             dot_products = np.dot(normalised_mags, normalised_gravs)
-        dips = 90 - np.degrees(np.arccos(dot_products))
+        dips = 90 - np.degrees(arccos(dot_products))
         return dips
 
     def set_expected_mean_dip_and_std(self, mag, grav):
