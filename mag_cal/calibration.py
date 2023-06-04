@@ -591,6 +591,7 @@ class Calibration:
     def get_dips(self, mag, grav):
         """
         Get the magnetic field dip
+
         :param numpy.ndarray mag: Magnetic readings, either as numpy array or sequence of 3
           floats
         :param numpy.ndarray grav: Gravity readings, either as numpy array or sequence of 3
@@ -628,6 +629,7 @@ class Calibration:
         """
         Store magnetic and gravity field strengths and also dip angles. This will be used for
         magnetic and (gravitational!!) anomaly detection
+
         :param numpy.ndarray mag: Magnetic readings, either as numpy array or sequence of 3
           floats
         :param numpy.ndarray grav: Gravity readings, either as numpy array or sequence of 3
@@ -640,15 +642,16 @@ class Calibration:
 
     def raise_if_anomaly(self, mag, grav, sigma=DEFAULT_SIGMA):
         """
+        Raises an error if magnetic field strength and dip are not similar to during calibration
 
         :param numpy.ndarray mag: Magnetic readings, sequence of 3 floats
         :param numpy.ndarray grav: Gravity readings, sequence of 3 floats
         :param sigma: number of standard deviations to accept, default is 3
         :return: None
         :raises:
-          * `MagneticAnomalyError` if magnetic field strength too big or small
-          * `GravityAnomalyError` if gravity field strength too big or small - this should be rare
-          * `DipAnomalyError` if magnetic field dip too big or small
+          * ``MagneticAnomalyError`` if magnetic field strength too big or small
+          * ``GravityAnomalyError`` if gravity field strength too big or small - this should be rare
+          * ``DipAnomalyError`` if magnetic field dip too big or small
         """
         if self.mag.reading_is_anomalous(mag):
             raise MagneticAnomalyError("Magnetic field strength out of limits")
