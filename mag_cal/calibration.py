@@ -6,7 +6,7 @@ Calibration class: main class to use
 """
 from . import nm
 from .rbf import RBF
-from .sensor import Sensor
+from .sensor import Sensor, DEFAULT_SIGMA
 from .utils import normalise, solve_least_squares, cross
 
 try:
@@ -28,6 +28,30 @@ __repo__ = "https://github.com/furbrain/CircuitPython_mag_cal.git"
 
 def _vector_from_matrices(matrix: np.ndarray, i: int, j: int):
     return np.array([x[i, j] for x in matrix])
+
+
+class CalibrationError(Exception):
+    """
+    Some sort of error from the Calibration Module
+    """
+
+
+class DipAnomalyError(CalibrationError):
+    """
+    Dip is not what we would expect it to be
+    """
+
+
+class MagneticAnomalyError(CalibrationError):
+    """
+    Magnetic field strength is not what we would expect it to be
+    """
+
+
+class GravityAnomalyError(CalibrationError):
+    """
+    Gravity field strength is not what we would expect it to be - device moving during shot?
+    """
 
 
 class Calibration:
@@ -66,6 +90,8 @@ class Calibration:
             grav_axes = mag_axes
         self.mag = Sensor(axes=mag_axes)
         self.grav = Sensor(axes=grav_axes)
+        self.dip_avg: float = None
+        self.dip_std: float = None
         self.ready = False
 
     def calibrate(
@@ -112,8 +138,10 @@ class Calibration:
                 self.fit_non_linear(paired_data)
             elif routine == self.FAST_NON_LINEAR:
                 self.fit_non_linear_quick(paired_data)
+            self.set_field_characteristics(mag_data, grav_data)
             return self.accuracy(paired_data)
         # just ellipsod fit done, so use uniformity measure
+        self.set_field_characteristics(mag_data, grav_data)
         return np.mean(self.uniformity(mag_data, grav_data))
 
     def get_angles(self, mag, grav) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -546,3 +574,87 @@ class Calibration:
         if max(azimuths) - min(azimuths) > precision:
             return False
         return True
+
+    def get_field_strengths(self, mag, grav):
+        """
+        Get field strength for magnetic and gravity components
+
+        :param numpy.ndarray mag: Magnetic readings, either as numpy array or sequence of 3
+          floats
+        :param numpy.ndarray grav: Gravity readings, either as numpy array or sequence of 3
+          floats
+        :return: mag_field, grav_field
+        :rtype: numpy.ndarrays if multiple readings given or floats
+        """
+        return self.mag.get_field_strength(mag), self.grav.get_field_strength(grav)
+
+    def get_dips(self, mag, grav):
+        """
+        Get the magnetic field dip
+        :param numpy.ndarray mag: Magnetic readings, either as numpy array or sequence of 3
+          floats
+        :param numpy.ndarray grav: Gravity readings, either as numpy array or sequence of 3
+          floats
+        :return: dip angle(s) in degrees
+        :rtype: numpy.ndarrays if multiple readings given or floats
+        """
+        normalised_mags = normalise(self.mag.apply(mag))
+        normalised_gravs = normalise(self.grav.apply(grav))
+        if len(normalised_gravs.shape) > 1:
+            dot_products = [
+                np.dot(m, g) for m, g in zip(normalised_mags, normalised_gravs)
+            ]
+            dot_products = np.array(dot_products)
+        else:
+            dot_products = np.dot(normalised_mags, normalised_gravs)
+        dips = 90 - np.degrees(np.arccos(dot_products))
+        return dips
+
+    def set_expected_mean_dip_and_std(self, mag, grav):
+        """
+        Store an expected dip and standard deviations. This will be used for
+        magnetic and (gravitational!!) anomaly detection
+
+        :param numpy.ndarray mag: Magnetic readings, either as numpy array or sequence of 3
+          floats
+        :param numpy.ndarray grav: Gravity readings, either as numpy array or sequence of 3
+          floats
+        """
+        dips = self.get_dips(mag, grav)
+        self.dip_avg = np.mean(dips)
+        self.dip_std = np.std(dips)
+
+    def set_field_characteristics(self, mag, grav):
+        """
+        Store magnetic and gravity field strengths and also dip angles. This will be used for
+        magnetic and (gravitational!!) anomaly detection
+        :param numpy.ndarray mag: Magnetic readings, either as numpy array or sequence of 3
+          floats
+        :param numpy.ndarray grav: Gravity readings, either as numpy array or sequence of 3
+          floats
+        :return:
+        """
+        self.mag.set_expected_field_strengths(mag)
+        self.grav.set_expected_field_strengths(grav)
+        self.set_expected_mean_dip_and_std(mag, grav)
+
+    def raise_if_anomaly(self, mag, grav, sigma=DEFAULT_SIGMA):
+        """
+
+        :param numpy.ndarray mag: Magnetic readings, sequence of 3 floats
+        :param numpy.ndarray grav: Gravity readings, sequence of 3 floats
+        :param sigma: number of standard deviations to accept, default is 3
+        :return: None
+        :raises:
+          * `MagneticAnomalyError` if magnetic field strength too big or small
+          * `GravityAnomalyError` if gravity field strength too big or small - this should be rare
+          * `DipAnomalyError` if magnetic field dip too big or small
+        """
+        if self.mag.reading_is_anomalous(mag):
+            raise MagneticAnomalyError("Magnetic field strength out of limits")
+        if self.grav.reading_is_anomalous(grav):
+            raise GravityAnomalyError("Gravity field strength out of limits")
+        dip = self.get_dips(mag, grav)
+        variation = abs(self.dip_avg - dip)
+        if variation > sigma * self.dip_std:
+            raise DipAnomalyError("Magnetic dip out of limits")

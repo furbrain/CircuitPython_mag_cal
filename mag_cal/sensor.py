@@ -18,6 +18,8 @@ from .axes import Axes
 from .utils import solve_least_squares, normalise, NotCalibrated, cross
 from .rbf import RBF
 
+DEFAULT_SIGMA = 3
+
 
 class Sensor:
     """
@@ -39,6 +41,8 @@ class Sensor:
         self.transform: np.ndarray = None
         self.centre: np.ndarray = None
         self.rbfs: List[RBF] = []
+        self.field_avg: float = None
+        self.field_std: float = None
 
     def fit_ellipsoid(self, data: np.ndarray) -> float:
         # pylint: disable=too-many-locals, invalid-name
@@ -212,6 +216,8 @@ class Sensor:
             "transform": self.transform.tolist(),
             "centre": self.centre.tolist(),
             "rbfs": [x.as_list() for x in self.rbfs],
+            "field_avg": self.field_avg,
+            "field_std": self.field_std,
         }
         return results
 
@@ -228,4 +234,40 @@ class Sensor:
         instance.transform = np.array(dct["transform"])
         instance.centre = np.array(dct["centre"])
         instance.rbfs = [RBF(x) for x in dct["rbfs"]]
+        instance.field_avg = dct["field_avg"]
+        instance.field_std = dct["field_std"]
         return instance
+
+    def get_field_strength(self, data):
+        """
+        Get the field strength from this sensor, using the original units that
+        the data was provided in.
+        :param numpy.ndarray data: Sensor readings, either as numpy array or sequence of 3 floats
+        :return: Single float or numpy array of field strengths
+        """
+        corrected_data = self.apply(data)
+        # convert back to original units using scale elements from transform
+        scaled_data = corrected_data / np.mean(np.diag(self.transform))
+        strengths = np.linalg.norm(scaled_data, axis=-1)
+        return strengths
+
+    def set_expected_field_strengths(self, data):
+        """
+        Store an expected field strength and standard deviations. This will be used for
+        magnetic and (gravitational!!) anomaly detection
+        :param numpy.ndarray data: Sensor readings, either as numpy array or sequence of 3 floats
+        """
+        strengths = self.get_field_strength(data)
+        self.field_avg = np.mean(strengths)
+        self.field_std = np.std(strengths)
+
+    def reading_is_anomalous(self, data, sigma=DEFAULT_SIGMA):
+        """
+        Returns True if given reading is not within expected range
+        :param data: sequence of 3 floats
+        :param sigma: NUmber of standard deviations that must be exceeded
+        :return: True if field strenght is greater than sigma standard deviations from the mean
+        """
+        strength = self.get_field_strength(data)
+        variation = abs(self.field_avg - strength)
+        return variation > sigma * self.field_std
