@@ -6,7 +6,7 @@ Calibration class: main class to use
 """
 from . import nm
 from .rbf import RBF
-from .sensor import Sensor, DEFAULT_SIGMA
+from .sensor import Sensor, SensorError
 from .utils import normalise, solve_least_squares, cross
 
 try:
@@ -67,6 +67,10 @@ class Calibration:
     ACCELEROMETER = 2
     BOTH = MAGNETOMETER | ACCELEROMETER
 
+    OFF = 0
+    SOFT = 1
+    HARD = 2
+
     ELLIPSOID = 0
     """Fit to Ellipsoid"""
     AXIS_CORRECTION = 1
@@ -75,6 +79,9 @@ class Calibration:
     """as per `AXIS_CORRECTION` and then do correction for non-linear effects"""
     FAST_NON_LINEAR = 3
     """as per `AXIS_CORRECTION` and then do quick non-linear correction"""
+
+    _SOFT_SETTINGS = {"grav": 0.02, "mag": 0.05, "dip": 3}
+    _HARD_SETTINGS = {"grav": 0.01, "mag": 0.02, "dip": 1}
 
     def __init__(self, mag_axes: str = "+X+Y+Z", grav_axes: str = None):
         """
@@ -644,24 +651,47 @@ class Calibration:
         self.grav.set_expected_field_strengths(grav)
         self.set_expected_mean_dip_and_std(mag, grav)
 
-    def raise_if_anomaly(self, mag, grav, sigma=DEFAULT_SIGMA):
+    def raise_if_anomaly(self, mag, grav, strictness: int = SOFT):
         """
         Raises an error if magnetic field strength and dip are not similar to during calibration
 
         :param numpy.ndarray mag: Magnetic readings, sequence of 3 floats
         :param numpy.ndarray grav: Gravity readings, sequence of 3 floats
-        :param sigma: number of standard deviations to accept, default is 3
+        :param int strictness: One of ``OFF``, ``SOFT``, ``HARD`` - these indicate how strictly
+          we check for deviations from field strength and dip
+
+          ========== ======= ======== ===
+          Strictness Gravity Magnetic Dip
+          ========== ======= ======== ===
+          ``OFF``    Off     Off      Off
+          ``SOFT``   ±2%     ±5%      3°
+          ``HARD``   ±1%     ±2%      1°
+          ========== ======= ======== ===
         :return: None
         :raises:
           * ``MagneticAnomalyError`` if magnetic field strength too big or small
           * ``GravityAnomalyError`` if gravity field strength too big or small - this should be rare
           * ``DipAnomalyError`` if magnetic field dip too big or small
         """
-        if self.mag.reading_is_anomalous(mag):
-            raise MagneticAnomalyError("Magnetic field strength out of limits")
-        if self.grav.reading_is_anomalous(grav):
-            raise GravityAnomalyError("Gravity field strength out of limits")
+        if strictness == self.OFF:
+            return
+        if strictness == self.SOFT:
+            settings = self._SOFT_SETTINGS
+        else:
+            settings = self._HARD_SETTINGS
+        try:
+            self.mag.raise_if_anomaly(mag, settings["mag"])
+        except SensorError as exc:
+            raise MagneticAnomalyError(exc.args) from exc
+        try:
+            self.grav.raise_if_anomaly(grav, settings["grav"])
+        except SensorError as exc:
+            raise GravityAnomalyError(exc.args) from exc
         dip = self.get_dips(mag, grav)
+        acceptable = max(3 * self.dip_std, settings["dip"])
         variation = abs(self.dip_avg - dip)
-        if variation > sigma * self.dip_std:
-            raise DipAnomalyError("Magnetic dip out of limits")
+        if variation > acceptable:
+            raise DipAnomalyError(
+                f"Magnetic dip {dip} out of limits {self.dip_avg-acceptable} - "
+                + f"{self.dip_avg+acceptable}"
+            )

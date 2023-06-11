@@ -18,7 +18,11 @@ from .axes import Axes
 from .utils import solve_least_squares, normalise, NotCalibrated, cross
 from .rbf import RBF
 
-DEFAULT_SIGMA = 3
+DEFAULT_TOLERANCE = 0.05
+
+
+class SensorError(Exception):
+    """Raised when sensor readings out of range"""
 
 
 class Sensor:
@@ -261,13 +265,21 @@ class Sensor:
         self.field_avg = np.mean(strengths)
         self.field_std = np.std(strengths)
 
-    def reading_is_anomalous(self, data, sigma=DEFAULT_SIGMA):
+    def raise_if_anomaly(self, data, tolerance=DEFAULT_TOLERANCE):
         """
-        Returns True if given reading is not within expected range
+        Raise SensorAnomaly if given reading is not within expected range
+
         :param data: sequence of 3 floats
-        :param sigma: NUmber of standard deviations that must be exceeded
-        :return: True if field strenght is greater than sigma standard deviations from the mean
+        :param tolerance: Amount if difference in field strength to accept
+        :raises: ``SensorError`` if field strength is greater than tolerance different from
+          the mean
         """
         strength = self.get_field_strength(data)
+        # set acceptable difference to be larger of 3 sigmas of standard deviation or tolerance
+        acceptable = max(self.field_std * 3, self.field_avg * tolerance)
         variation = abs(self.field_avg - strength)
-        return variation > sigma * self.field_std
+        if variation > acceptable:
+            raise SensorError(
+                f"Strength is {strength}, should be {self.field_avg-acceptable} - "
+                + f"{self.field_avg + acceptable}"
+            )

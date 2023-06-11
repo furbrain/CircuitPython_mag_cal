@@ -29,7 +29,12 @@ There are several axis conventions used.
   facing away from you and Z is up.
 
 """
-from .calibration import Calibration
+from .calibration import (
+    Calibration,
+    MagneticAnomalyError,
+    DipAnomalyError,
+    GravityAnomalyError,
+)
 from .axes import Axes
 from .sensor import Sensor
 from .utils import NotCalibrated
