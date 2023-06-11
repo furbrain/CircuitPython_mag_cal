@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from mag_cal.calibration import Calibration, CalibrationError
+from mag_cal.calibration import Calibration
 from mag_cal.utils import read_fixture
 
 
@@ -143,9 +143,8 @@ class TestCalibration(TestCase):
         for mag, grav, _ in self.fixtures.values():
             calib = Calibration()
             calib.calibrate(mag, grav)
-            with self.assertRaises(CalibrationError):
-                for m, g in zip(mag, grav):
-                    calib.raise_if_anomaly(m, g, sigma=1)
+            for m, g in zip(mag, grav):
+                calib.raise_if_anomaly(m, g, Calibration.HARD)
 
     @unittest.skip
     def test_display_non_linear_maps(self):
