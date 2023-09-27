@@ -4,13 +4,15 @@
 """
 Calibration class: main class to use
 """
+from collections import namedtuple
+
 from . import nm
 from .rbf import RBF
 from .sensor import Sensor, SensorError
 from .utils import normalise, solve_least_squares, cross
 
 try:
-    from typing import Tuple, Dict
+    from typing import Tuple, Dict, Optional
 except ImportError:
     # ignore if running in CircuitPython/MicroPython
     pass
@@ -58,6 +60,9 @@ class GravityAnomalyError(CalibrationError):
     """
 
 
+Strictness = namedtuple("Strictness", ("mag", "grav", "dip"))
+
+
 class Calibration:
     """
     Object representing a magnetometer and accelerometer calibration
@@ -80,8 +85,7 @@ class Calibration:
     FAST_NON_LINEAR = 3
     """as per `AXIS_CORRECTION` and then do quick non-linear correction"""
 
-    _SOFT_SETTINGS = {"grav": 0.02, "mag": 0.05, "dip": 3}
-    _HARD_SETTINGS = {"grav": 0.01, "mag": 0.02, "dip": 1}
+    _DEFAULT_STRICTNESS = Strictness(grav=2.0, mag=2.0, dip=3.0)
 
     def __init__(self, mag_axes: str = "+X+Y+Z", grav_axes: str = None):
         """
@@ -101,8 +105,7 @@ class Calibration:
             grav_axes = mag_axes
         self.mag = Sensor(axes=mag_axes)
         self.grav = Sensor(axes=grav_axes)
-        self.dip_avg: float = None
-        self.dip_std: float = None
+        self.dip_avg: Optional[float] = None
 
     def calibrate(
         self,
@@ -177,7 +180,6 @@ class Calibration:
         dct = {
             "mag": self.mag.as_dict(),
             "grav": self.grav.as_dict(),
-            "dip_std": self.dip_std,
             "dip_avg": self.dip_avg,
         }
         return dct
@@ -193,7 +195,6 @@ class Calibration:
         instance = cls()
         instance.mag = Sensor.from_dict(dct["mag"])
         instance.grav = Sensor.from_dict(dct["grav"])
-        instance.dip_std = dct["dip_std"]
         instance.dip_avg = dct["dip_avg"]
         return instance
 
@@ -622,7 +623,7 @@ class Calibration:
         dips = 90 - np.degrees(arccos(dot_products))
         return dips
 
-    def set_expected_mean_dip_and_std(self, mag, grav):
+    def set_expected_mean_dip(self, mag, grav):
         """
         Store an expected dip and standard deviations. This will be used for
         magnetic and (gravitational!!) anomaly detection
@@ -634,7 +635,6 @@ class Calibration:
         """
         dips = self.get_dips(mag, grav)
         self.dip_avg = np.mean(dips)
-        self.dip_std = np.std(dips)
 
     def set_field_characteristics(self, mag, grav):
         """
@@ -649,46 +649,36 @@ class Calibration:
         """
         self.mag.set_expected_field_strengths(mag)
         self.grav.set_expected_field_strengths(grav)
-        self.set_expected_mean_dip_and_std(mag, grav)
+        self.set_expected_mean_dip(mag, grav)
 
-    def raise_if_anomaly(self, mag, grav, strictness: int = SOFT):
+    def raise_if_anomaly(self, mag, grav, strictness: Strictness = _DEFAULT_STRICTNESS):
         """
         Raises an error if magnetic field strength and dip are not similar to during calibration
 
         :param numpy.ndarray mag: Magnetic readings, sequence of 3 floats
         :param numpy.ndarray grav: Gravity readings, sequence of 3 floats
-        :param int strictness: One of ``OFF``, ``SOFT``, ``HARD`` - these indicate how strictly
-          we check for deviations from field strength and dip
-
-          ========== ======= ======== ===
-          Strictness Gravity Magnetic Dip
-          ========== ======= ======== ===
-          ``OFF``    Off     Off      Off
-          ``SOFT``   ±2%     ±5%      3°
-          ``HARD``   ±1%     ±2%      1°
-          ========== ======= ======== ===
+        :param int strictness: Dict containing the following entries:
+          * ``mag``: Acceptable percentage difference in magnetic field strength
+          * ``grav``: Acceptable percentage difference in gravity field strength
+          * ``dip``: Acceptable difference in dip in degrees
+          If not specified will default to 2% for ``mag`` and ``grav`` and 3° for ``dip``
         :return: None
         :raises:
           * ``MagneticAnomalyError`` if magnetic field strength too big or small
-          * ``GravityAnomalyError`` if gravity field strength too big or small - this should be rare
+          * ``GravityAnomalyError`` if gravity field strength too big or small -
+             usually occurs if movement during read
           * ``DipAnomalyError`` if magnetic field dip too big or small
         """
-        if strictness == self.OFF:
-            return
-        if strictness == self.SOFT:
-            settings = self._SOFT_SETTINGS
-        else:
-            settings = self._HARD_SETTINGS
         try:
-            self.mag.raise_if_anomaly(mag, settings["mag"])
+            self.mag.raise_if_anomaly(mag, strictness.mag / 100)
         except SensorError as exc:
             raise MagneticAnomalyError(exc.args) from exc
         try:
-            self.grav.raise_if_anomaly(grav, settings["grav"])
+            self.grav.raise_if_anomaly(grav, strictness.grav / 100)
         except SensorError as exc:
             raise GravityAnomalyError(exc.args) from exc
         dip = self.get_dips(mag, grav)
-        acceptable = max(3 * self.dip_std, settings["dip"])
+        acceptable = strictness.dip
         variation = abs(self.dip_avg - dip)
         if variation > acceptable:
             raise DipAnomalyError(

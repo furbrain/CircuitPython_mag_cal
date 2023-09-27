@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 import numpy as np
 
-from mag_cal.calibration import Calibration
+from mag_cal import DipAnomalyError
+from mag_cal.calibration import Calibration, Strictness
 from mag_cal.utils import read_fixture
 
 
@@ -138,13 +139,22 @@ class TestCalibration(TestCase):
             for m, g in zip(mag, grav):
                 calib.raise_if_anomaly(m, g)
 
-    def test_calibration_readings_anomalous_with_low_sigma(self):
+    def test_calibration_readings_anomalous_with_custom_strictness(self):
         # pylint: disable=invalid-name
         for mag, grav, _ in self.fixtures.values():
             calib = Calibration()
             calib.calibrate(mag, grav)
             for m, g in zip(mag, grav):
-                calib.raise_if_anomaly(m, g, Calibration.HARD)
+                calib.raise_if_anomaly(m, g, Strictness(2.0, 2.0, 3.0))
+
+    def test_calibration_readings_anomalous_raises_when_strict(self):
+        # pylint: disable=invalid-name
+        for mag, grav, _ in self.fixtures.values():
+            calib = Calibration()
+            calib.calibrate(mag, grav)
+            with self.assertRaises(DipAnomalyError):
+                for m, g in zip(mag, grav):
+                    calib.raise_if_anomaly(m, g, Strictness(2.0, 2.0, 0.1))
 
     @unittest.skip
     def test_display_non_linear_maps(self):
