@@ -40,4 +40,4 @@ from .axes import Axes
 from .sensor import Sensor
 from .utils import NotCalibrated
 
-__all__ = ["Calibration", "Axes", "Sensor", "NotCalibrated"]
+__all__ = ["Calibration", "Axes", "Sensor", "NotCalibrated", "Strictness"]
