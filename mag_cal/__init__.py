@@ -31,6 +31,7 @@ There are several axis conventions used.
 """
 from .calibration import (
     Calibration,
+    Strictness,
     MagneticAnomalyError,
     DipAnomalyError,
     GravityAnomalyError,
