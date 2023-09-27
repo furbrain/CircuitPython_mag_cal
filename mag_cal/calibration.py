@@ -657,16 +657,18 @@ class Calibration:
 
         :param numpy.ndarray mag: Magnetic readings, sequence of 3 floats
         :param numpy.ndarray grav: Gravity readings, sequence of 3 floats
-        :param int strictness: Dict containing the following entries:
+        :param Strictness strictness: NamedTuple containing the following entries
+
           * ``mag``: Acceptable percentage difference in magnetic field strength
           * ``grav``: Acceptable percentage difference in gravity field strength
           * ``dip``: Acceptable difference in dip in degrees
+
           If not specified will default to 2% for ``mag`` and ``grav`` and 3° for ``dip``
         :return: None
         :raises:
-          * ``MagneticAnomalyError`` if magnetic field strength too big or small
-          * ``GravityAnomalyError`` if gravity field strength too big or small -
-             usually occurs if movement during read
+          * ``MagneticAnomalyError`` if magnetic field strength too big or small.
+          * ``GravityAnomalyError`` if gravity field strength too big or small - usually
+            occurs if movement during read
           * ``DipAnomalyError`` if magnetic field dip too big or small
         """
         try:
