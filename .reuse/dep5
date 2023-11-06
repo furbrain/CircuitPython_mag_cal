@@ -1,0 +1,8 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: CircuitPython_mag_cal
+Upstream-Contact: Phil Underwood <beardydoc@gmail.com>
+Source: https://github.com/furbrain/CircuitPython_mag_cal
+
+Files: tests/fixtures/*
+Copyright: 2022-2023 Phil Underwood <beardydoc@gmail.com>
+License: Unlicense

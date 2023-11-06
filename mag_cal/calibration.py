@@ -290,6 +290,7 @@ class Calibration:
                 self.mag.set_non_linear_params(final_params)
             if sensor & self.ACCELEROMETER:
                 params = x[-params_per_sensor:]
+                final_params = np.zeros(param_count * 3)
                 # do not optimize axis around which we are rotating - set these coefficients to zero
                 # do not optimize axis around which we are rotating - set these coefficients to zero
                 if axis_index == 0:
@@ -339,10 +340,11 @@ class Calibration:
         :return: Standard deviation of accuracy of calibration in degrees
         """
         self.mag.set_linear()
+        self.grav.set_linear()
         expected_mags = []
         raw_mags = []
         for mag, grav in data:
-            expected, raw = self._get_raw_and_expected_mag_data(grav, mag)
+            expected, raw = self._get_raw_and_expected_mag_data(mag, grav)
             expected_mags.extend(expected)
             raw_mags.extend(raw)
         # create least squares set of sums
@@ -408,7 +410,7 @@ class Calibration:
         params = solve_least_squares(input_data, output_data)
         return params
 
-    def _get_raw_and_expected_mag_data(self, grav, mag):
+    def _get_raw_and_expected_mag_data(self, mag, grav):
         # pylint: disable=invalid-name,too-many-locals
         """
         Rotate a set of mag readings so that the effects of roll has been removed and calculate

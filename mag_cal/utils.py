@@ -61,14 +61,18 @@ def read_fixture(fixture: str):
     :return:
     """
     data = json.loads(fixture)
-    mag = data["shots"]["mag"]
-    grav = data["shots"]["grav"]
-    mag = [x for x in mag if x is not None and not math.isnan(x)]
-    mag = np.array(mag)
-    mag = mag.reshape((mag.shape[0] // 3, 3))
-    grav = [x for x in grav if x is not None and not math.isnan(x)]
-    grav = np.array(grav)
-    grav = grav.reshape((grav.shape[0] // 3, 3))
+    if "shots" in data:
+        mag = data["shots"]["mag"]
+        grav = data["shots"]["grav"]
+        mag = [x for x in mag if x is not None and not math.isnan(x)]
+        mag = np.array(mag)
+        mag = mag.reshape((mag.shape[0] // 3, 3))
+        grav = [x for x in grav if x is not None and not math.isnan(x)]
+        grav = np.array(grav)
+        grav = grav.reshape((grav.shape[0] // 3, 3))
+    else:
+        mag = np.array(data["mag"])
+        grav = np.array(data["grav"])
     mag_aligned = [mag[8:16], mag[16:24]]
     grav_aligned = [grav[8:16], grav[16:24]]
     aligned_data = list(zip(mag_aligned, grav_aligned))
