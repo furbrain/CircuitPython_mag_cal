@@ -13,26 +13,37 @@ from mag_cal import DipAnomalyError
 from mag_cal.calibration import Calibration, Strictness
 from mag_cal.utils import read_fixture
 
+FIXTURE_SET = "SAP6"
+
+if FIXTURE_SET == "SAP6":
+    FIXTURE_PATH = "SAP6"
+    MAG_AXES = "+x+y-z"
+    GRAV_AXES = "-y-x+z"
+else:
+    FIXTURE_PATH = "cal_data"
+    MAG_AXES = "+X+Y+Z"
+    GRAV_AXES = "+X+Y+Z"
+
 
 class TestCalibration(TestCase):
     def setUp(self) -> None:
         np.set_printoptions(precision=4, suppress=True)
         self.fixtures = {}
-        for fname in (Path(__file__).parent / "fixtures" / "cal_data").glob("*.json"):
+        for fname in (Path(__file__).parent / "fixtures" / FIXTURE_PATH).glob("*.json"):
             with open(fname) as fixture:
                 aligned_data, grav, mag = read_fixture(fixture.read())
                 self.fixtures[fname] = (mag, grav, aligned_data)
 
     def test_fit_ellipsoid(self):
         for mag, grav, _ in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             mag_accuracy, grav_accuracy = calib.fit_ellipsoid(mag, grav)
             self.assertGreater(0.01, mag_accuracy)
             self.assertGreater(0.001, grav_accuracy)
 
     def test_fit_to_axis(self):
         for mag, grav, aligned_data in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             calib.fit_ellipsoid(mag, grav)
             before = calib.accuracy(aligned_data)
             calib.fit_to_axis(aligned_data, axis="Y")
@@ -41,11 +52,16 @@ class TestCalibration(TestCase):
             # we should expect accuracy to at least double after alignment
             self.assertLess(2.0, before / after)
 
+    @staticmethod
+    def get_calibration():
+        calib = Calibration(mag_axes=MAG_AXES, grav_axes=GRAV_AXES)
+        return calib
+
     def test_non_linear(self):
         non_linears = []
         ratios = []
         for mag, grav, aligned_data in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             calib.fit_ellipsoid(mag, grav)
             calib.accuracy(aligned_data)
             before = calib.fit_to_axis(aligned_data, axis="Y")
@@ -66,7 +82,7 @@ class TestCalibration(TestCase):
         non_linears = []
         ratios = []
         for mag, grav, aligned_data in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             calib.fit_ellipsoid(mag, grav)
             calib.accuracy(aligned_data)
             before = calib.fit_to_axis(aligned_data, axis="Y")
@@ -79,7 +95,6 @@ class TestCalibration(TestCase):
         print("Improvement: ", improvement)
         self.assertLess(improvement, 0.75)
 
-    # we skip this as it is more of a debugging tool than true test
     @staticmethod
     def test_angles_to_matrix_singles():
         angles = [35, +20, 10]
@@ -103,7 +118,7 @@ class TestCalibration(TestCase):
 
     def test_find_runs(self):
         for mag, grav, _ in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             calib.fit_ellipsoid(mag, grav)
             self.assertListEqual(
                 [[8, 16], [16, 24]], calib.find_similar_shots(mag, grav)
@@ -122,19 +137,19 @@ class TestCalibration(TestCase):
         mags = [[0, 0, 0]] * 7
         gravs = mags
         with patch("mag_cal.calibration.Calibration.get_angles", side_effect=results):
-            calib = Calibration()
+            calib = self.get_calibration()
             self.assertListEqual([[2, 7]], calib.find_similar_shots(mags, gravs))
 
     def test_integration_calibrate(self):
         for mag, grav, _ in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             accuracy = calib.calibrate(mag, grav)
             self.assertGreater(0.5, accuracy)
 
     def test_calibration_readings_not_anomalous(self):
         # pylint: disable=invalid-name
         for mag, grav, _ in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             calib.calibrate(mag, grav)
             for m, g in zip(mag, grav):
                 calib.raise_if_anomaly(m, g)
@@ -142,7 +157,7 @@ class TestCalibration(TestCase):
     def test_calibration_readings_anomalous_with_custom_strictness(self):
         # pylint: disable=invalid-name
         for mag, grav, _ in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             calib.calibrate(mag, grav)
             for m, g in zip(mag, grav):
                 calib.raise_if_anomaly(m, g, Strictness(2.0, 2.0, 3.0))
@@ -150,19 +165,20 @@ class TestCalibration(TestCase):
     def test_calibration_readings_anomalous_raises_when_strict(self):
         # pylint: disable=invalid-name
         for mag, grav, _ in self.fixtures.values():
-            calib = Calibration()
+            calib = self.get_calibration()
             calib.calibrate(mag, grav)
             with self.assertRaises(DipAnomalyError):
                 for m, g in zip(mag, grav):
                     calib.raise_if_anomaly(m, g, Strictness(2.0, 2.0, 0.1))
 
+    # we skip these as they are more of a debugging tool than true test
     @unittest.skip
     def test_display_non_linear_maps(self):
         # pylint: disable=invalid-name,import-outside-toplevel,cell-var-from-loop
         import matplotlib.pyplot as plt
 
         mag, grav, aligned_data = list(self.fixtures.values())[3]
-        calib = Calibration()
+        calib = self.get_calibration()
         calib.fit_ellipsoid(mag, grav)
         calib.accuracy(aligned_data)
         calib.fit_to_axis(aligned_data, axis="Y")
@@ -190,15 +206,16 @@ class TestCalibration(TestCase):
         import matplotlib.pyplot as plt
 
         _, axs = plt.subplots(3, len(self.fixtures) // 3, sharex=True, sharey=True)
-        params = 5
+        params = 3
         for i, (mag, grav, aligned_data) in enumerate(self.fixtures.values()):
-            calib = Calibration()
+            calib = self.get_calibration()
             calib.fit_ellipsoid(mag, grav)
             linear = calib.fit_to_axis(aligned_data, axis="Y")
             xs = np.linspace(-1, 1, 40)
             _, min_acc = calib.fit_non_linear(aligned_data, param_count=params)
             y1 = calib.mag.rbfs[0](xs)
             y2 = calib.mag.rbfs[2](xs)
+            y3 = calib.mag.rbfs[1](xs)
             q1_acc = calib.fit_non_linear_quick(aligned_data, param_count=params)
             yq1 = calib.mag.rbfs[0](xs)
             yq2 = calib.mag.rbfs[2](xs)
@@ -206,8 +223,26 @@ class TestCalibration(TestCase):
             ax = axs[i // 3, i % 3]
             ax.plot(xs, y1, "r-", label=f"minimizer({min_acc:.4f})")
             ax.plot(xs, y2, "b-", label=f"(linear({linear:.4f})")
+            ax.plot(xs, y3, "g-", label=f"(linear({linear:.4f})")
             ax.plot(xs, yq1, "r:", label=f"quick_1({q1_acc:.4f})")
             ax.plot(xs, yq2, "b:")
             ax.plot(xs, yq3, "g:")
             ax.legend()
         plt.show()
+
+    @unittest.skip
+    def test_report_non_linear_term_accuracy(self):
+        ### pylint: disable=invalid-name,import-outside-toplevel,too-many-locals
+        params = 1
+        for i, (mag, grav, aligned_data) in self.fixtures.items():
+            calib = self.get_calibration()
+            calib.fit_ellipsoid(mag, grav)
+            linear = calib.fit_to_axis(aligned_data, axis="Y")
+            _, min_mag_acc = calib.fit_non_linear(
+                aligned_data, sensor=Calibration.ACCELEROMETER
+            )
+            min_both_acc = calib.fit_non_linear_quick(aligned_data, param_count=params)
+            min_quick = calib.fit_non_linear_quick(aligned_data, param_count=params + 2)
+            print(
+                f"{i}: {linear:.3f}, {min_mag_acc:.3f}, {min_both_acc:.3f}, {min_quick:.3f}"
+            )
