@@ -52,6 +52,7 @@ class RBF:
         :return:
         """
         if isinstance(x, np.ndarray):
+            x = x.copy()
             x = x.reshape((1, x.size))
         distances = x - self.offsets
         gaussians = np.exp(-((distances / self.epsilon) ** 2))
