@@ -7,13 +7,41 @@ name: PyPI Release Actions
 on:
   release:
     types: [published]
-
 jobs:
-  upload-release-assets:
+  pypi-publish:
+    name: upload release to PyPI
     runs-on: ubuntu-latest
+    # Specifying a GitHub environment is optional, but strongly encouraged
+    environment: release
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
     steps:
-    - name: Run PyPI Release CI workflow
-      uses: adafruit/workflows-circuitpython-libs/release-pypi@main
-      with:
-        pypi-username: ${{ secrets.pypi_username }}
-        pypi-password: ${{ secrets.pypi_password }}
+      # retrieve your distributions here
+      - uses: actions/checkout@v4
+        with:
+            show-progress: false
+
+      - name: Check For pyproject.toml
+        id: need-pypi
+        shell: bash
+        run: |
+          echo pyproject-toml=$( find . -wholename './pyproject.toml' ) >> $GITHUB_OUTPUT
+
+      - name: Set up Python
+        if: contains(steps.need-pypi.outputs.pyproject-toml, 'pyproject.toml')
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install dependencies
+        if: contains(steps.need-pypi.outputs.pyproject-toml, 'pyproject.toml')
+        shell: bash
+
+
+
+        run: |
+          find -type f -not -path "./.*" -not -path "./docs*" \( -name "*.py" -o -name "*.toml" \) -exec sed -i -e "s/0.0.0+auto.0/${{github.event.release.tag_name}}/" {} +
+          python -m build
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
